@@ -1,0 +1,7 @@
+{
+  "name": "HomeToHome - Ai Academy",
+  "description": "A Kindle-style landscape PDF viewer and AI Ethics Advisor for real estate professionals, featuring integrated YouTube playback and advanced Gemini AI chat.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}

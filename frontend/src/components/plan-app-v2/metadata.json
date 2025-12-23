@@ -1,0 +1,5 @@
+{
+  "name": "React Plan App",
+  "description": "A hierarchical plan management application with panels, tasks, and nested rows.",
+  "requestFramePermissions": []
+}

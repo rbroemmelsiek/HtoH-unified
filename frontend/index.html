@@ -1,0 +1,409 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HomeToHome.Ai</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Playfair+Display:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+      body {
+        font-family: 'Open Sans', sans-serif;
+      }
+      h1, h2, h3, .font-serif {
+        font-family: 'Playfair Display', serif;
+      }
+      /* Hide scrollbar for Chrome, Safari and Opera */
+      .no-scrollbar::-webkit-scrollbar {
+          display: none;
+      }
+      /* Hide scrollbar for IE, Edge and Firefox */
+      .no-scrollbar {
+          -ms-overflow-style: none;  /* IE and Edge */
+          scrollbar-width: none;  /* Firefox */
+      }
+      /* Pronounced scrollbar for key scroll areas */
+      .custom-scrollbar {
+        scrollbar-width: thin;
+        scrollbar-color: #5b6cb8 #e8ebf7;
+      }
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 12px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: #e8ebf7;
+        border-radius: 999px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #5b6cb8;
+        border-radius: 999px;
+        border: 2px solid #e8ebf7;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: #3f4ca3;
+      }
+      
+      /* Plan App Root Container */
+      .plan-app {
+        width: 100%;
+        height: 100%;
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* Plan App Icon Styles */
+      .plan-app .fa-fw--thin {
+        width: 1em;
+      }
+      
+      .plan-app .icon-item {
+        font-size: 1.25em;
+        cursor: pointer;
+        color: #333;
+        transition: color 0.2s ease;
+        display: inline-block;
+        line-height: 1;
+        vertical-align: middle;
+      }
+      
+      .plan-app .icon-item:hover:not(.disabled) {
+        color: #5972d0;
+      }
+      
+      .plan-app .icon-item.disabled {
+        color: #e6e6e6 !important;
+        cursor: not-allowed !important;
+        opacity: 0.5;
+      }
+      
+      /* Ensure Font Awesome icons render properly */
+      .plan-app .fa {
+        font-family: "Font Awesome 6 Free";
+        font-weight: 900; /* Solid style */
+        display: inline-block;
+        font-style: normal;
+        font-variant: normal;
+        text-rendering: auto;
+        -webkit-font-smoothing: antialiased;
+        speak: none;
+      }
+      
+      /* For regular weight icons if needed */
+      .plan-app .fa-regular {
+        font-family: "Font Awesome 6 Free";
+        font-weight: 400;
+      }
+      
+      .plan-app .fa-fw {
+        width: 1.28571429em;
+        text-align: center;
+      }
+      
+      /* Toolbar button blocks styling */
+      .plan-app .editEl,
+      .plan-app .addEl {
+        display: flex;
+        align-items: center;
+        background-color: white;
+        border-radius: 10px;
+        border: 1px solid #ccc;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        box-sizing: border-box;
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+      
+      .plan-app .editEl {
+        padding: 0.5em 0.6em;
+        gap: 0.4em;
+      }
+      
+      .plan-app .addEl {
+        padding: 0.5em 1em;
+        gap: 0.5em;
+        position: relative;
+      }
+      
+      .plan-app .holder {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: nowrap;
+        align-items: stretch;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2), 0 2px 6px rgba(0, 0, 0, 0.1);
+        padding: 0.5em 0.6em;
+        background: #f8f8f8;
+        border-radius: 10px;
+        gap: 0.5em;
+        min-width: 200px;
+      }
+      
+      /* Plan App Row Styling */
+      .plan-app__entry {
+        list-style: none !important;
+        padding: 0;
+        margin: 0 0 2px 0;
+        position: relative;
+      }
+      
+      /* Panel styling */
+      .plan-app .entry__panel {
+        background: #141D84;
+        color: white;
+        padding: 0.5rem 0;
+        border-radius: 8px;
+        border: 1px solid #0f1555;
+        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        transition: all 0.3s ease-in-out;
+        margin-bottom: 2px;
+        cursor: pointer;
+      }
+      
+      .plan-app .entry__panel:hover {
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        border-color: #5972d0;
+      }
+      
+      .plan-app .entry__panel .entry__header {
+        color: white;
+        font-weight: 500;
+      }
+      
+      /* Text, Checkbox, Link, Comment styling - children of panels */
+      .plan-app .entry__panel > ul > li > .entry__text,
+      .plan-app .entry__panel > ul > li > .entry__checkbox,
+      .plan-app .entry__panel > ul > li > .plan-app__entry__link,
+      .plan-app .entry__panel > ul > li > .entry__comment {
+        background: #ffffff;
+        padding: 0.5rem 0;
+        border-radius: 8px;
+        border: 1px solid #cbcbcb;
+        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        transition: all 0.3s ease-in-out;
+        margin-bottom: 2px;
+      }
+      
+      /* Alternating colors for children */
+      .plan-app .entry__panel > ul > li:nth-child(odd) > .entry__text,
+      .plan-app .entry__panel > ul > li:nth-child(odd) > .entry__checkbox,
+      .plan-app .entry__panel > ul > li:nth-child(odd) > .plan-app__entry__link,
+      .plan-app .entry__panel > ul > li:nth-child(odd) > .entry__comment {
+        background: #ffffff;
+      }
+      
+      .plan-app .entry__panel > ul > li:nth-child(even) > .entry__text,
+      .plan-app .entry__panel > ul > li:nth-child(even) > .entry__checkbox,
+      .plan-app .entry__panel > ul > li:nth-child(even) > .plan-app__entry__link,
+      .plan-app .entry__panel > ul > li:nth-child(even) > .entry__comment {
+        background: #f6f6f6;
+      }
+      
+      /* Deeper nesting - alternate again */
+      .plan-app .entry__panel > ul > li > ul > li:nth-child(odd) > .entry__text,
+      .plan-app .entry__panel > ul > li > ul > li:nth-child(odd) > .entry__checkbox,
+      .plan-app .entry__panel > ul > li > ul > li:nth-child(odd) > .plan-app__entry__link,
+      .plan-app .entry__panel > ul > li > ul > li:nth-child(odd) > .entry__comment {
+        background: #f6f6f6;
+      }
+      
+      .plan-app .entry__panel > ul > li > ul > li:nth-child(even) > .entry__text,
+      .plan-app .entry__panel > ul > li > ul > li:nth-child(even) > .entry__checkbox,
+      .plan-app .entry__panel > ul > li > ul > li:nth-child(even) > .plan-app__entry__link,
+      .plan-app .entry__panel > ul > li > ul > li:nth-child(even) > .entry__comment {
+        background: #ffffff;
+      }
+      
+      .plan-app .entry__text:hover,
+      .plan-app .entry__checkbox:hover,
+      .plan-app .plan-app__entry__link:hover,
+      .plan-app .entry__comment:hover {
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        border-color: #999;
+      }
+      
+      .plan-app__entry > ul {
+        padding: 0 0 0 1.4em;
+        margin-top: 2px;
+        transition: all 0.5s ease-in-out;
+        overflow: hidden;
+        list-style: none;
+      }
+      
+      .plan-app__entry__icons {
+        line-height: 2em;
+        height: 2em;
+        flex-shrink: 0;
+        flex-grow: 0;
+        align-items: center;
+        display: flex;
+        margin: 0 0.25em;
+        gap: 0.25em;
+      }
+      
+      .plan-app__entry__body {
+        align-self: center;
+        flex-grow: 1;
+        padding: 0 0.3em;
+        align-items: center;
+        position: relative;
+        display: flex;
+        align-content: center;
+        flex-direction: row;
+        flex-wrap: nowrap; /* Keep header + inputs on a single line */
+        min-width: 0;
+      }
+      
+      .plan-app .entry__header {
+        font-size: 0.9rem;
+        line-height: 1.4;
+        display: block;
+      }
+      
+      .plan-app .min-height-delete {
+        min-height: 4em;
+      }
+      
+      .hidden-plan-part {
+        opacity: 0.35;
+        filter: grayscale(0.2);
+      }
+      
+      /* Drag handler styling */
+      .plan-app .sort-handler {
+        height: 1em;
+        width: 1em;
+        opacity: 0;
+        cursor: move;
+      }
+      
+      .plan-app .sort-handler.hovered {
+        opacity: 0.3;
+      }
+      
+      @media screen and (max-width: 991px) {
+        .plan-app .sort-handler {
+          opacity: 0.3;
+        }
+      }
+      
+      /* Top row container */
+      .plan-app .topRow {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+      
+      /* Section styling */
+      .plan-app .section {
+        display: flex;
+        align-items: center;
+        width: 100%;
+      }
+      
+      .plan-app .section__main {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        min-width: 0; /* Allow flex item to shrink below content size */
+      }
+      
+      .plan-app .section__actions {
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        margin-left: auto;
+      }
+      
+      /* Progress Nav styling */
+      .plan-app__progress-nav {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        padding: 0.5rem 1rem;
+        background: #f8f9fa;
+        border-bottom: 1px solid #e0e0e0;
+        overflow-x: auto;
+        white-space: nowrap;
+        z-index: 10;
+      }
+      
+      .plan-app__progress-nav.sticky {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+      }
+      
+      .plan-app .entry__panel,
+      .plan-app .entry__text,
+      .plan-app .entry__checkbox,
+      .plan-app .plan-app__entry__link,
+      .plan-app .entry__comment {
+        position: relative;
+        width: 100%;
+      }
+      
+      .plan-app .entry__panel > .section,
+      .plan-app .entry__text > .section,
+      .plan-app .entry__checkbox > .section,
+      .plan-app .plan-app__entry__link > .section,
+      .plan-app .entry__comment > .section {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        width: 100%;
+      }
+      
+      /* Checkbox styling */
+      .plan-app .entry__checkbox input[type="checkbox"] {
+        margin: 0 0.5em 0 0;
+        cursor: pointer;
+      }
+      
+      /* Link styling */
+      .plan-app .plan-app__entry__link a {
+        color: #5972d0;
+        text-decoration: none;
+      }
+      
+      .plan-app .plan-app__entry__link a:hover {
+        text-decoration: underline;
+      }
+      
+      /* Comment styling */
+      .plan-app .entry__comment .entry__header.bold {
+        font-weight: bold;
+      }
+      
+      /* Input styling for edit mode */
+      .plan-app .entry__panel input[type="text"],
+      .plan-app .entry__text input[type="text"],
+      .plan-app .entry__checkbox input[type="text"],
+      .plan-app .plan-app__entry__link input[type="text"],
+      .plan-app .entry__comment input[type="text"] {
+        width: 100%;
+        padding: 0.25em 0.5em;
+        border: 1px solid #5972d0;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        box-sizing: border-box;
+      }
+      
+      .plan-app .plan-app__entry__link input[type="url"] {
+        width: 100%;
+        padding: 0.25em 0.5em;
+        border: 1px solid #5972d0;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        margin-top: 0.25em;
+        box-sizing: border-box;
+      }
+    </style>
+</head>
+  <body class="bg-[#F0F4FA] text-[#202124] h-screen overflow-hidden">
+    <div id="root" class="h-full"></div>
+    <script type="module" src="/src/index.tsx"></script>
+  </body>
+</html>
