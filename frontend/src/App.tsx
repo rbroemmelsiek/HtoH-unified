@@ -395,6 +395,14 @@ function App() {
       recognition.onerror = (event: any) => {
         console.error("Speech recognition error", event.error);
         setIsListening(false);
+        
+        if (event.error === 'not-allowed') {
+          alert("Microphone access was denied. Please ensure you have granted permission in your browser settings. \n\nNote: Mobile browsers often require HTTPS (secure connection) for microphone access.");
+        } else if (event.error === 'no-speech') {
+          // Ignore "no speech" to avoid interrupting the user experience
+        } else {
+          alert(`Speech recognition error: ${event.error}`);
+        }
       };
       recognition.onresult = (event: any) => {
         const transcript = event.results[0][0].transcript;
