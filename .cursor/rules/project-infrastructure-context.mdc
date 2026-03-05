@@ -1,0 +1,79 @@
+---
+description: Core project infrastructure and deployment context
+alwaysApply: true
+---
+
+# HomeToHome Infrastructure Context
+
+- Project: `gen-lang-client-0379491128`
+- Region: `us-central1`
+- Firestore location: `us-central`
+- Backend service: `hometohome-backend`
+- Frontend service: `hometohome-frontend`
+- Artifact bucket: `gen-lang-client-0379491128-artifacts`
+- Includes ADK: `yes`
+- One-command PowerShell deploy flow: `yes`
+
+# HomeToHome 3.0 GCP Setup Script
+
+```powershell
+# =========================
+# HomeToHome 3.0 - GCP setup
+# =========================
+
+$PROJECT_ID = "gen-lang-client-0379491128"
+$REGION = "us-central1"
+$FIRESTORE_LOCATION = "us-central"
+$BACKEND_SERVICE = "hometohome-backend"
+$FRONTEND_SERVICE = "hometohome-frontend"
+$ARTIFACT_BUCKET = "$PROJECT_ID-artifacts"
+
+# Set project + auth
+gcloud config set project $PROJECT_ID
+gcloud auth login
+gcloud auth application-default login
+
+# Enable APIs
+gcloud services enable `
+  run.googleapis.com `
+  cloudbuild.googleapis.com `
+  artifactregistry.googleapis.com `
+  firestore.googleapis.com `
+  storage.googleapis.com `
+  aiplatform.googleapis.com `
+  generativelanguage.googleapis.com
+
+# Firestore (safe if already created; ignore error if exists)
+gcloud firestore databases create --location=$FIRESTORE_LOCATION --type=firestore-native
+
+# Create artifacts bucket (safe if exists)
+gsutil mb -l $REGION "gs://$ARTIFACT_BUCKET"
+
+# CORS config for local + deployed frontend
+@'
+[
+  {
+    "origin": [
+      "http://localhost:3000",
+      "http://localhost:3001"
+    ],
+    "method": ["GET","HEAD","OPTIONS"],
+    "responseHeader": ["Content-Type","Content-Length","Accept-Ranges","Content-Range"],
+    "maxAgeSeconds": 3600
+  }
+]
+'@ | Set-Content -Path "$PWD\gcs-cors.json" -Encoding utf8
+
+gsutil cors set "$PWD\gcs-cors.json" "gs://$ARTIFACT_BUCKET"
+
+# Grant token creator to default compute service account (used often by Cloud Run runtime)
+$PROJECT_NUMBER = gcloud projects describe $PROJECT_ID --format="value(projectNumber)"
+$RUNTIME_SA = "$PROJECT_NUMBER-compute@developer.gserviceaccount.com"
+
+gcloud projects add-iam-policy-binding $PROJECT_ID `
+  --member="serviceAccount:$RUNTIME_SA" `
+  --role="roles/iam.serviceAccountTokenCreator"
+
+Write-Host "Base GCP setup complete."
+Write-Host "Next: deploy backend/frontend Cloud Run services."
+```

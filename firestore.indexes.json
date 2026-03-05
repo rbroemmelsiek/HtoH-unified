@@ -1,0 +1,24 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "rows",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "parentId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "pos",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
+      ],
+      "density": "SPARSE_ALL"
+    }
+  ],
+  "fieldOverrides": []
+}
