@@ -1,6 +1,6 @@
 "use client";
 
-import PrimaryApp from "../../frontend-vite/src/App";
+import PrimaryApp from "../src/App";
 
 export default function PrimaryAppClient() {
   return <PrimaryApp />;
