@@ -1,0 +1,25 @@
+# Firebase App Hosting runtime/build configuration for Next.js frontend.
+runConfig:
+  minInstances: 0
+
+env:
+  - variable: NEXT_PUBLIC_GEMINI_PROXY_URL
+    value: https://us-central1-htoh-3-0.cloudfunctions.net/geminiProxy
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_PLAN_AI_FUNCTION_URL
+    value: https://us-central1-htoh-3-0.cloudfunctions.net/planAiAssist
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_PLAN_APP_PORT
+    value: "5174"
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_PLAN_DATASOURCE
+    value: "local"
+    availability:
+      - BUILD
+      - RUNTIME
