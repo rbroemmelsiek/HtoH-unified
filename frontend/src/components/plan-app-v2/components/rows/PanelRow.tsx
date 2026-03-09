@@ -28,9 +28,8 @@ const PanelRow: React.FC<PanelRowProps> = ({ element }) => {
 
   const isHovered = state.hoveredRowId === element.eid;
   
-  // Base color: #141D84
-  // Hover color: #1a25a0
-  const bgClass = isHovered ? 'bg-[#1a25a0]' : 'bg-[#141D84] hover:bg-[#1a25a0]';
+  // Base color: #141D84, Hover: #1a25a0 - use inline style to guarantee dark blue shows
+  const bgColor = isHovered ? '#1a25a0' : '#141D84';
 
   // Adjusted scroll-mt to 65px to align with navbar height and provide a clean gap
   // Removed select-none to allow text selection in inputs
@@ -40,7 +39,8 @@ const PanelRow: React.FC<PanelRowProps> = ({ element }) => {
       ref={rootRef}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      className={`text-white py-1.5 px-2 rounded-md shadow-sm w-full scroll-mt-[65px] transition-colors duration-200 ${bgClass}`}
+      style={{ backgroundColor: bgColor }}
+      className="text-white py-1.5 px-2 rounded-md shadow-sm w-full scroll-mt-[65px] transition-colors duration-200"
     >
       <RowHeader 
         row={element} 

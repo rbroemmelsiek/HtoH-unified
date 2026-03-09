@@ -1,4 +1,4 @@
-﻿# HtoH Unified Platform
+# HtoH Unified Platform
 
 A comprehensive real estate advisory platform combining:
 
@@ -7,6 +7,7 @@ A comprehensive real estate advisory platform combining:
 - **AI Academy** - Learning platform with video, chat, and document viewing
 - **AI Ethics Advisor** - Vertex AI Agent Engine for ethical guidance
 - **Forms Engine** - Dynamic form builder (coming soon)
+- **Spanner Graph** (optional) - Graph database via Cloud Spanner; use the 90-day free trial. See `docs/spanner-graph-setup.md`.
 
 ## Project Structure
 

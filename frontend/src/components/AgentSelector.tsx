@@ -246,10 +246,11 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({ agents, currentAge
               key={agent.id}
               id={`agent-card-${agent.id}`}
               onClick={() => handleAgentClick(agent)}
+              style={isActive ? { backgroundColor: '#141D84' } : undefined}
               className={`
                 flex-shrink-0 relative flex items-center gap-3 px-3 py-1.5 rounded-xl border transition-all duration-300 group/agent select-none snap-center
                 ${isActive 
-                  ? 'bg-[#F0F4FA] border-[#141D84]/20 shadow-md ring-1 ring-[#141D84]/10 scale-100 z-0' 
+                  ? 'bg-[#141D84] border-white/30 shadow-md ring-1 ring-white/20 scale-100 z-0 text-white' 
                   : 'bg-transparent border-transparent hover:bg-gray-50 hover:border-gray-100 opacity-70 hover:opacity-100 grayscale hover:grayscale-0'
                 }
               `}
@@ -279,10 +280,10 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({ agents, currentAge
               </div>
               
               <div className="text-left whitespace-nowrap pointer-events-none">
-                <div className={`text-sm font-bold leading-tight ${isActive ? 'text-[#141D84]' : 'text-gray-500 group-hover/agent:text-gray-800'}`}>
+                <div className={`text-sm font-bold leading-tight ${isActive ? 'text-white' : 'text-gray-500 group-hover/agent:text-gray-800'}`}>
                   {agent.name}
                 </div>
-                <div className="text-[10px] md:text-[11px] text-gray-400 font-medium leading-tight mt-0.5">
+                <div className={`text-[10px] md:text-[11px] font-medium leading-tight mt-0.5 ${isActive ? 'text-white/80' : 'text-gray-400'}`}>
                   {agent.role}
                 </div>
               </div>

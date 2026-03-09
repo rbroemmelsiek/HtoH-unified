@@ -291,3 +291,84 @@ Respond in JSON format with: text, optional navHint, optional isCorrect.`,
     return;
   }
 });
+
+/**
+ * Spanner Graph connectivity and optional read check.
+ * Requires SPANNER_INSTANCE and SPANNER_DATABASE in functions env.
+ * Optional: SPANNER_GRAPH_NAME (e.g. FinGraph) to run a trivial graph query.
+ * Use a free trial instance to avoid cost: https://cloud.google.com/spanner/docs/free-trial-instance
+ */
+export const spannerGraphPing = onRequest(async (req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+  res.set("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Content-Type");
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return;
+  }
+  if (req.method !== "GET") {
+    res.status(405).json({ok: false, error: "Use GET"});
+    return;
+  }
+
+  const instanceId = process.env.SPANNER_INSTANCE ?? "";
+  const databaseId = process.env.SPANNER_DATABASE ?? "";
+  const graphName = process.env.SPANNER_GRAPH_NAME ?? "";
+
+  if (!instanceId || !databaseId) {
+    res.status(200).json({
+      ok: true,
+      configured: false,
+      message:
+        "Spanner Graph not configured. Set SPANNER_INSTANCE and SPANNER_DATABASE (and optionally SPANNER_GRAPH_NAME) in functions env. See docs/spanner-graph-setup.md.",
+    });
+    return;
+  }
+
+  try {
+    const projectId = process.env.GCLOUD_PROJECT ?? process.env.VERTEX_PROJECT;
+    if (!projectId) {
+      res.status(500).json({ok: false, error: "Missing GCLOUD_PROJECT / VERTEX_PROJECT"});
+      return;
+    }
+
+    const {Spanner} = await import("@google-cloud/spanner");
+    const spanner = new Spanner({projectId});
+    const instance = spanner.instance(instanceId);
+    const database = instance.database(databaseId);
+
+    const [rows] = await database.run({sql: "SELECT 1 AS one"});
+    const connected = rows.length > 0;
+
+    if (!connected) {
+      res.status(200).json({ok: false, configured: true, error: "Spanner returned no rows"});
+      return;
+    }
+
+    let graphOk: boolean | null = null;
+    let graphError: string | undefined;
+    if (graphName) {
+      try {
+        const gql = `SELECT * FROM GRAPH_TABLE(${graphName} MATCH (n) RETURN n) LIMIT 1`;
+        await database.run({sql: gql});
+        graphOk = true;
+      } catch (e) {
+        graphOk = false;
+        graphError = e instanceof Error ? e.message : String(e);
+      }
+    }
+
+    res.status(200).json({
+      ok: true,
+      configured: true,
+      spanner: "connected",
+      graph: graphName ? (graphOk === true ? "ok" : graphError ?? "error") : "not_checked",
+    });
+    return;
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.error("spannerGraphPing failed", {message});
+    res.status(500).json({ok: false, configured: true, error: message});
+    return;
+  }
+});

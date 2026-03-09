@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ExpandedWidgetType, AppConfig } from '../types';
 import { X, Maximize2 } from 'lucide-react';
 import { MapsWidget } from './MapsWidget';
@@ -28,11 +28,19 @@ interface ExpandedWidgetPanelProps {
   config?: AppConfig;
   initialData?: any; // Data passed from chat widget interaction
   instanceKey?: number; // Force remount of nested widgets when switching contexts
+  /** When true (e.g. for Plan widget), panel opens in full screen by default */
+  initialFullScreen?: boolean;
+  /** Notify parent when full screen state changes (e.g. so chat can recenter) */
+  onFullScreenChange?: (isFullScreen: boolean) => void;
 }
 
-export const ExpandedWidgetPanel: React.FC<ExpandedWidgetPanelProps> = ({ type, onClose, config, initialData, instanceKey }) => {
+export const ExpandedWidgetPanel: React.FC<ExpandedWidgetPanelProps> = ({ type, onClose, config, initialData, instanceKey, initialFullScreen, onFullScreenChange }) => {
   __agentLog('H7','ExpandedWidgetPanel.tsx:renderType','render expanded widget',{type});
-  const [isFullScreen, setIsFullScreen] = useState(false);
+  const [isFullScreen, setIsFullScreen] = useState(initialFullScreen ?? false);
+
+  useEffect(() => {
+    onFullScreenChange?.(isFullScreen);
+  }, [isFullScreen, onFullScreenChange]);
 
   if (!type) return null;
 
@@ -64,6 +72,17 @@ export const ExpandedWidgetPanel: React.FC<ExpandedWidgetPanelProps> = ({ type, 
         ? 'fixed top-0 left-0 right-0 bottom-0 z-[500] pb-[80px]' // Full screen overlay above headers
         : 'h-full'}
     `}>
+      {/* Floating Close (X) - always visible in full screen, fixed to viewport so it stays on top */}
+      {isFullScreen && isFullBleed && (
+        <button
+          onClick={onClose}
+          className="fixed top-4 right-4 z-[9999] p-3 rounded-full bg-[#141D84] hover:bg-[#1a25a0] text-white shadow-xl border-2 border-white/50 transition-colors"
+          title="Close"
+          style={{ minWidth: 44, minHeight: 44 }}
+        >
+          <X size={24} strokeWidth={2.5} className="flex-shrink-0" />
+        </button>
+      )}
       {/* Header - Only for generic widgets */}
       {showHeader && (
         <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-gray-50 flex-shrink-0">

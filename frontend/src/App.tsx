@@ -105,6 +105,7 @@ function App() {
   const [expandedInstance, setExpandedInstance] = useState(0); // Force remount per open to avoid stale widget state
   const [splitRatio, setSplitRatio] = useState(0.5); // Desktop split between chat and expansion
   const [isResizingSplit, setIsResizingSplit] = useState(false);
+  const [widgetIsFullScreen, setWidgetIsFullScreen] = useState(false); // When true, chat recenters full-width (min 800px)
 
   // State for Calculator Bar
   const [isCalculatorVisible, setIsCalculatorVisible] = useState(true);
@@ -423,6 +424,7 @@ function App() {
   const handleCloseWidget = () => {
     setExpandedWidget(null);
     setExpandedWidgetData(null);
+    setWidgetIsFullScreen(false);
     setExpandedInstance(prev => prev + 1); // bump key so next open remounts fresh
     // Force a layout recalculation by triggering a resize event
     // This helps AgentSelector recalculate scroll positions
@@ -705,6 +707,8 @@ function App() {
             config={config}
             initialData={expandedWidgetData}
             instanceKey={expandedInstance}
+            initialFullScreen={expandedWidget === 'plan'}
+            onFullScreenChange={setWidgetIsFullScreen}
           />
         </div>
       )}
@@ -785,13 +789,83 @@ function App() {
 
             <div className="grid gap-4 md:gap-6">
               <section className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+                <h2 className="text-xl font-semibold mb-3 text-[#141D84]">Quick Links</h2>
+                <div className="text-sm space-y-2">
+                  <p className="font-medium text-gray-800">Apps</p>
+                  <ul className="list-none space-y-1">
+                    <li><a href="http://127.0.0.1:3011" target="_blank" rel="noopener noreferrer" className="text-[#141D84] hover:underline">Local frontend</a></li>
+                    <li><a href="http://127.0.0.1:14001" target="_blank" rel="noopener noreferrer" className="text-[#141D84] hover:underline">Local Emulator Suite UI</a></li>
+                    <li><a href="https://htoh-frontend--htoh-3-0.us-central1.hosted.app" target="_blank" rel="noopener noreferrer" className="text-[#141D84] hover:underline">Cloud frontend</a></li>
+                  </ul>
+                  <p className="font-medium text-gray-800 mt-3">Backend Functions</p>
+                  <ul className="list-none space-y-1">
+                    <li><a href="https://us-central1-htoh-3-0.cloudfunctions.net/pingVertex" target="_blank" rel="noopener noreferrer" className="text-[#141D84] hover:underline">pingVertex</a></li>
+                    <li><a href="https://us-central1-htoh-3-0.cloudfunctions.net/planAiAssist" target="_blank" rel="noopener noreferrer" className="text-[#141D84] hover:underline">planAiAssist</a></li>
+                    <li><a href="https://us-central1-htoh-3-0.cloudfunctions.net/geminiProxy" target="_blank" rel="noopener noreferrer" className="text-[#141D84] hover:underline">geminiProxy</a></li>
+                    <li><a href="https://us-central1-htoh-3-0.cloudfunctions.net/spannerGraphPing" target="_blank" rel="noopener noreferrer" className="text-[#141D84] hover:underline">spannerGraphPing</a></li>
+                  </ul>
+                  <p className="font-medium text-gray-800 mt-3">Spanner Graph (no cost until you create an instance)</p>
+                  <ul className="list-none space-y-2 text-gray-700">
+                    <li>
+                      <span className="font-medium text-gray-800">Reminder:</span> Enabling the Spanner API alone incurs no charges; billing only applies once you create an instance.
+                    </li>
+                    <li>
+                      <a href="https://console.cloud.google.com/flows/enableapi?apiid=spanner.googleapis.com&project=htoh-3-0" target="_blank" rel="noopener noreferrer" className="text-[#141D84] hover:underline">Enable Spanner API</a>
+                      <span className="block text-gray-600 mt-0.5">→ Enable when ready; no cost until you create an instance.</span>
+                    </li>
+                    <li>
+                      <a href="https://us-central1-htoh-3-0.cloudfunctions.net/spannerGraphPing" target="_blank" rel="noopener noreferrer" className="text-[#141D84] hover:underline">spannerGraphPing</a>
+                      <span className="block text-gray-600 mt-0.5">→ Verify connectivity after setting SPANNER_INSTANCE and SPANNER_DATABASE in <code>functions/.env</code>.</span>
+                    </li>
+                    <li>
+                      <span className="block text-gray-600">See <code>docs/spanner-graph-setup.md</code> for free trial, instance creation, and env setup.</span>
+                    </li>
+                  </ul>
+                  <p className="font-medium text-gray-800 mt-3">Firebase Console</p>
+                  <ul className="list-none space-y-1">
+                    <li><a href="https://console.firebase.google.com/project/htoh-3-0/overview" target="_blank" rel="noopener noreferrer" className="text-[#141D84] hover:underline">Project overview</a></li>
+                    <li><a href="https://console.firebase.google.com/project/htoh-3-0/firestore" target="_blank" rel="noopener noreferrer" className="text-[#141D84] hover:underline">Firestore</a></li>
+                    <li><a href="https://console.firebase.google.com/project/htoh-3-0/storage" target="_blank" rel="noopener noreferrer" className="text-[#141D84] hover:underline">Storage</a></li>
+                    <li><a href="https://console.firebase.google.com/project/htoh-3-0/authentication" target="_blank" rel="noopener noreferrer" className="text-[#141D84] hover:underline">Authentication</a></li>
+                  </ul>
+
+                  <p className="font-medium text-gray-800 mt-3">Inspecting Vertex AI & Vector Search (GCP Console)</p>
+                  <ul className="list-none space-y-2 text-gray-700">
+                    <li>
+                      <a href="https://console.cloud.google.com/vertex-ai?project=htoh-3-0" target="_blank" rel="noopener noreferrer" className="text-[#141D84] hover:underline">Vertex AI (Gemini, models, APIs)</a>
+                      <span className="block text-gray-600 mt-0.5">→ Confirm project is htoh-3-0 (top bar). Use Dashboard for overview, Language for Gemini/generative models, APIs to confirm Vertex AI API is enabled.</span>
+                    </li>
+                    <li>
+                      <a href="https://console.cloud.google.com/vertex-ai/matching-engine/indexes?project=htoh-3-0" target="_blank" rel="noopener noreferrer" className="text-[#141D84] hover:underline">Vertex AI Vector Search (index endpoints)</a>
+                      <span className="block text-gray-600 mt-0.5">→ Check Indexes and Index endpoints. This app uses a real index when VECTOR_SEARCH_INDEX_ENDPOINT is set; otherwise a stub. The list may be empty until you create an index.</span>
+                    </li>
+                    <li>
+                      <a href="https://console.cloud.google.com/apis/library/aiplatform.googleapis.com?project=htoh-3-0" target="_blank" rel="noopener noreferrer" className="text-[#141D84] hover:underline">Enable Vertex AI API (if needed)</a>
+                      <span className="block text-gray-600 mt-0.5">→ Click Enable if the API is not already enabled.</span>
+                    </li>
+                  </ul>
+                </div>
+              </section>
+
+              <section className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
                 <h2 className="text-xl font-semibold mb-3 text-[#141D84]">Backend Services</h2>
                 <ul className="list-disc pl-6 text-sm text-gray-700 space-y-1">
                   <li>Primary backend is Firebase Cloud Functions in <code>functions</code>.</li>
                   <li>Vertex AI connectivity is validated by the <code>pingVertex</code> HTTP function.</li>
                   <li>Plan AI helpers are routed through <code>planAiAssist</code> (server-side Vertex call).</li>
+                  <li>Spanner Graph is optional: <code>spannerGraphPing</code> checks connectivity when <code>SPANNER_INSTANCE</code> and <code>SPANNER_DATABASE</code> are set. Use the 90-day free trial to avoid cost; see <code>docs/spanner-graph-setup.md</code>.</li>
                   <li>Functions environment variables are managed in <code>functions/.env</code>.</li>
                 </ul>
+              </section>
+
+              <section className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+                <h2 className="text-xl font-semibold mb-3 text-[#141D84]">Why You Don&apos;t See Gemini/Vertex API Keys in the App</h2>
+                <div className="text-sm text-gray-700 space-y-3">
+                  <p>Vertex AI and Gemini are called server-side only. The frontend never sends a request directly to Vertex or Gemini; it calls your API (emulator or cloud Functions). So the frontend has no need for a Gemini or Vertex API key.</p>
+                  <p><strong>Frontend</strong> (e.g. <code>.env.local</code>): You only see <code>NEXT_PUBLIC_*</code> vars: Firebase config (API key, project ID, etc.) and function URLs such as <code>NEXT_PUBLIC_GEMINI_PROXY_URL</code>, <code>NEXT_PUBLIC_PLAN_AI_FUNCTION_URL</code>. The Firebase API key is for the Firebase client SDK (Auth, Firestore, Storage), not for Vertex.</p>
+                  <p><strong>Functions</strong> (e.g. <code>functions/.env</code>): You set <code>VERTEX_PROJECT</code>, <code>VERTEX_LOCATION</code>, <code>GOOGLE_GENAI_USE_VERTEXAI=true</code>. There is no separate &quot;API key&quot;—Vertex is used with Application Default Credentials (ADC): when the emulator or cloud runs your code, GCP identifies the project (and, in cloud, the service account) and grants access to Vertex AI. Locally, that is usually <code>gcloud auth application-default login</code>; in production, the Functions runtime provides credentials automatically.</p>
+                  <p><strong>Summary:</strong> No Gemini or Vertex API keys are stored in the app. Access is by project identity (ADC), not by a key in env. The only keys you see are Firebase client keys in the frontend for Auth/Firestore/Storage.</p>
+                </div>
               </section>
 
               <section className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
@@ -864,8 +938,8 @@ function App() {
 
         {/* Left Panel: Main App Content */}
         <main
-          className={`flex flex-col h-full relative transition-all duration-300 ${expandedWidget ? 'border-r border-gray-200' : ''}`}
-          style={{ width: expandedWidget ? `${splitRatio * 100}%` : '100%', userSelect: isResizingSplit ? 'none' : undefined }}
+          className={`flex flex-col h-full relative transition-all duration-300 ${expandedWidget && !widgetIsFullScreen ? 'border-r border-gray-200' : ''}`}
+          style={{ width: expandedWidget && !widgetIsFullScreen ? `${splitRatio * 100}%` : '100%', userSelect: isResizingSplit ? 'none' : undefined }}
         >
 
           {/* Messages Area - Scrollable Flex Item */}
@@ -886,13 +960,13 @@ function App() {
             )}
 
             <div
-              className="p-4 md:p-6 transition-all duration-300 ease-in-out"
+              className={`p-4 md:p-6 transition-all duration-300 ease-in-out ${widgetIsFullScreen ? 'flex justify-center' : ''}`}
               style={{
                 // Adjust top padding based on CalculatorBar
                 paddingTop: isCalculatorVisible && !isCalculatorExpanded ? '120px' : '20px'
               }}
             >
-              <div className="max-w-3xl mx-auto pb-4">
+              <div className={`pb-4 mx-auto ${widgetIsFullScreen ? 'w-full min-w-0 max-w-[800px]' : 'max-w-3xl'}`}>
                 {messages.map(msg => (
                   <MessageBubble
                     key={msg.id}
@@ -923,7 +997,7 @@ function App() {
 
           {/* Input Area - Fixed at Bottom */}
           <div className="flex-shrink-0 bg-white border-t border-gray-200 pb-2 pt-2 px-2 md:px-4 z-[60] w-full">
-            <div className="max-w-3xl mx-auto w-full">
+            <div className={`mx-auto w-full ${widgetIsFullScreen ? 'max-w-[800px]' : 'max-w-3xl'}`}>
 
               {/* Suggested Prompts Slider */}
               <div className="mb-1 min-h-[32px] flex items-center">
@@ -1035,8 +1109,8 @@ function App() {
           </div>
         </main>
 
-        {/* Splitter Handle - desktop only */}
-        {expandedWidget && (
+        {/* Splitter Handle - desktop only (hidden when widget is full-screen overlay) */}
+        {expandedWidget && !widgetIsFullScreen && (
           <div
             className="hidden md:block w-2 bg-gray-200 hover:bg-gray-300 cursor-col-resize"
             onMouseDown={handleStartResize}
@@ -1045,11 +1119,11 @@ function App() {
           />
         )}
 
-        {/* Right Panel: Expanded Widget View (Desktop) */}
+        {/* Right Panel: Expanded Widget View (Desktop). Width 0 when full-screen so chat takes 100%; panel is fixed overlay. */}
         {expandedWidget && (
           <aside
-            className="hidden md:block h-full border-l border-gray-200 bg-[#F0F4FA] relative z-10"
-            style={{ width: `${(1 - splitRatio) * 100}%` }}
+            className="hidden md:block h-full border-l border-gray-200 bg-[#F0F4FA] relative z-10 overflow-visible"
+            style={{ width: widgetIsFullScreen ? 0 : `${(1 - splitRatio) * 100}%` }}
           >
             <ExpandedWidgetPanel
               key={`${expandedWidget}-${expandedInstance}`}
@@ -1058,6 +1132,8 @@ function App() {
               config={config}
               initialData={expandedWidgetData}
               instanceKey={expandedInstance}
+              initialFullScreen={expandedWidget === 'plan'}
+              onFullScreenChange={setWidgetIsFullScreen}
             />
           </aside>
         )}
