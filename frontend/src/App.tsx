@@ -8,8 +8,10 @@ import { MessageBubble } from './components/MessageBubble';
 import { AgentSelector } from './components/AgentSelector';
 import { CalculatorBar } from './components/CalculatorBar';
 import { ExpandedWidgetPanel } from './components/ExpandedWidgetPanel';
-import { Send, Menu, Loader2, Mic, Plus, Calendar, MapPin, Play, BarChart3, FileText, Users, Maximize2, Minimize2, Home, ChevronRight, Briefcase, Truck, Image as ImageIcon, ArrowLeft, ClipboardCheck, BookOpen, BookText, LayoutGrid, GraduationCap, HelpCircle } from 'lucide-react';
+import { Send, Menu, Loader2, Mic, Plus, Calendar, MapPin, Play, BarChart3, FileText, Users, Maximize2, Minimize2, Home, ChevronRight, Briefcase, Truck, Image as ImageIcon, ArrowLeft, ClipboardCheck, BookOpen, BookText, LayoutGrid, GraduationCap, HelpCircle, LogIn } from 'lucide-react';
 import AcademyApp from './components/ai-academy-v1/App';
+import { AuthLoginPanel } from './components/AuthLoginPanel';
+import { useAuth } from './context/AuthContext';
 
 // #region agent log
 const __agentLog = (hypothesisId: string, location: string, message: string, data: any) => {
@@ -45,6 +47,7 @@ type ToolsMenuMode = 'main' | 'services' | 'transactional' | 'vendor';
 type AppView = 'dashboard' | 'academy' | 'help';
 
 function App() {
+  const { user } = useAuth();
   // Navigation state - Dashboard or Academy
   const [currentView, setCurrentView] = useState<AppView>('dashboard');
   // Load agents from localStorage or fallback to INITIAL_AGENTS
@@ -116,6 +119,9 @@ function App() {
   // State for STT
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<any>(null);
+
+  // Auth: login panel visibility
+  const [showLoginPanel, setShowLoginPanel] = useState(false);
 
   // Config State
   const [config, setConfig] = useState<AppConfig>({
@@ -739,6 +745,14 @@ function App() {
             
             <div className="flex items-center gap-2">
               <button
+                onClick={() => setShowLoginPanel(true)}
+                className="px-3 py-1.5 hover:bg-white/10 rounded-full text-blue-100 transition-colors text-sm font-medium flex items-center gap-1.5"
+                aria-label="Login"
+              >
+                <LogIn size={16} />
+                {user ? (user.email ?? 'Account') : 'Login'}
+              </button>
+              <button
                 onClick={() => setCurrentView('help')}
                 className="px-3 py-1.5 hover:bg-white/10 rounded-full text-blue-100 transition-colors text-sm font-medium flex items-center gap-1.5"
                 aria-label="Open help"
@@ -756,6 +770,24 @@ function App() {
             </div>
           </div>
         </header>
+      )}
+
+      {/* Login / Auth modal */}
+      {showLoginPanel && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setShowLoginPanel(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Login"
+        >
+          <div onClick={(e) => e.stopPropagation()}>
+            <AuthLoginPanel
+              onClose={() => setShowLoginPanel(false)}
+              showHost={true}
+            />
+          </div>
+        </div>
       )}
 
       {/* Agent Selector Slider - Only show in Dashboard view */}

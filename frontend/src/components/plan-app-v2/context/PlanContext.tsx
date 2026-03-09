@@ -1,8 +1,9 @@
 
-import React, { createContext, useContext, useReducer, ReactNode } from 'react';
+import React, { createContext, useContext, useReducer, ReactNode, useEffect } from 'react';
 import { PlanDocument, PlanRow, AddChildType } from '../types';
 import { SAMPLE_PLAN } from '../constants';
 import { clonePlan, findRowInTree, findFamily, getDummyElement, findParent, deleteRowFromTree, findPathToNode, generateId } from '../utils/planHelpers';
+import planGateway from '../../../services/planGateway/planGateway';
 
 interface PlanState {
   plan: PlanDocument;
@@ -65,6 +66,9 @@ type Action =
 
 const planReducer = (state: PlanState, action: Action): PlanState => {
   switch (action.type) {
+    case 'INIT_PLAN':
+      return { ...state, plan: action.payload };
+
     case 'SET_SEARCH_TERM':
       return { ...state, searchTerm: action.payload, isSearchEnabled: action.payload.trim().length > 0 };
     
@@ -233,6 +237,50 @@ const planReducer = (state: PlanState, action: Action): PlanState => {
 const PlanContext = createContext<{ state: PlanState; dispatch: React.Dispatch<Action> } | undefined>(undefined);
 export const PlanProvider = ({ children }: { children?: ReactNode }) => {
   const [state, dispatch] = useReducer(planReducer, initialState);
+
+  // Load an existing plan document from the active gateway (local storage today, Firebase later).
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const response = await planGateway.fetch('load', {});
+        if (cancelled || !response || !response.root) return;
+
+        const loadedPlan: PlanDocument = {
+          name: response.name || SAMPLE_PLAN.name,
+          root: {
+            children: response.root.children || [],
+          },
+        };
+
+        dispatch({ type: 'INIT_PLAN', payload: loadedPlan });
+      } catch (e) {
+        console.error('[PlanProvider] Failed to load plan from gateway', e);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Persist plan changes through the gateway (currently LocalPlanGateway → localStorage).
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    planGateway
+      .updatePlan({
+        name: state.plan.name,
+        root: { children: state.plan.root.children },
+      })
+      .catch((e) => {
+        console.error('[PlanProvider] Failed to persist plan via gateway', e);
+      });
+  }, [state.plan]);
+
   return <PlanContext.Provider value={{ state, dispatch }}>{children}</PlanContext.Provider>;
 };
 export const usePlan = () => {
