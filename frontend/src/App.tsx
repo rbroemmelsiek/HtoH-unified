@@ -891,6 +891,128 @@ function App() {
               </section>
 
               <section className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+                <h2 className="text-xl font-semibold mb-3 text-[#141D84]">Firebase Web SDK & Env Setup (Formulator)</h2>
+                <div className="text-sm text-gray-700 space-y-4">
+                  <p>
+                    This Formulator guide mirrors <code>docs/firebase-web-sdk-setup.md</code>. It describes how to wire the Firebase Web SDK
+                    into a Next.js 15 frontend using a single Firebase project <code>formulator-488620</code>, driven entirely by
+                    <code>NEXT_PUBLIC_FIREBASE_*</code> env vars.
+                  </p>
+
+                  <div>
+                    <h3 className="text-base font-semibold text-[#141D84] mb-1">1. Clarify what runs where</h3>
+                    <ul className="list-disc pl-6 space-y-1">
+                      <li>
+                        <strong>Frontend (Next.js 15 on Firebase App Hosting)</strong>: uses the <strong>Firebase Web SDK only</strong> for
+                        Auth, Firestore (client access patterns), Storage, and optionally Analytics.
+                      </li>
+                      <li>
+                        <strong>Backend (Firebase Functions TypeScript)</strong>: uses the <strong>Firebase Admin SDK</strong> for privileged
+                        operations and never reads <code>NEXT_PUBLIC_...</code> env vars.
+                      </li>
+                      <li>
+                        <strong>Single project</strong>: both Web and Admin SDKs point to the same Firebase project
+                        <code>formulator-488620</code> and its default Firestore DB / Storage bucket.
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div>
+                    <h3 className="text-base font-semibold text-[#141D84] mb-1">2. Centralized Firebase Web SDK module</h3>
+                    <p className="mb-1">
+                      Create <code>frontend/src/lib/firebase.ts</code> and make it the only place that initializes the Web SDK.
+                    </p>
+                    <ul className="list-disc pl-6 space-y-1">
+                      <li>Read config from <code>NEXT_PUBLIC_FIREBASE_*</code> env vars.</li>
+                      <li>
+                        Initialize the Firebase app exactly once (via <code>getApps()</code>/<code>getApp()</code> or a simple singleton).
+                      </li>
+                      <li>
+                        Export helpers: <code>firebaseApp</code>, <code>firebaseAuth</code>, <code>firebaseFirestore</code>,
+                        <code>firebaseStorage</code>, and optionally <code>firebaseAnalytics</code>.
+                      </li>
+                      <li>
+                        Make Analytics initialization browser-only and conditional on <code>measurementId</code> to avoid SSR errors.
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div>
+                    <h3 className="text-base font-semibold text-[#141D84] mb-1">3. Required environment variables</h3>
+                    <p className="mb-1">
+                      Add these to <code>.env.local</code> for <code>formulator-488620</code> (and restart <code>npm run dev</code> after
+                      edits):
+                    </p>
+                    <ul className="list-disc pl-6 space-y-1">
+                      <li><code>NEXT_PUBLIC_FIREBASE_API_KEY</code> → <code>apiKey</code></li>
+                      <li><code>NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN</code> → <code>authDomain</code></li>
+                      <li><code>NEXT_PUBLIC_FIREBASE_PROJECT_ID</code> → <code>projectId</code> (must be <code>formulator-488620</code>)</li>
+                      <li><code>NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET</code> → <code>storageBucket</code></li>
+                      <li><code>NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID</code> → <code>messagingSenderId</code></li>
+                      <li><code>NEXT_PUBLIC_FIREBASE_APP_ID</code> → <code>appId</code></li>
+                      <li>
+                        <code>NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID</code> (optional) → <code>measurementId</code> if you want Analytics.
+                      </li>
+                    </ul>
+                    <p className="mt-2">
+                      Optional extras: local emulator hosts (<code>FIREBASE_EMULATOR_HOST</code>, <code>FIRESTORE_EMULATOR_HOST</code>, etc.)
+                      are non-<code>NEXT_PUBLIC</code> and only used during dev.
+                    </p>
+                  </div>
+
+                  <div>
+                    <h3 className="text-base font-semibold text-[#141D84] mb-1">4. Wire into the Next.js app</h3>
+                    <ul className="list-disc pl-6 space-y-1">
+                      <li>
+                        In client components/hooks, import from <code>@/lib/firebase</code> instead of calling
+                        <code>initializeApp</code> inline. Example: <code>import {'{ firebaseAuth }'} from "@/lib/firebase";</code>
+                      </li>
+                      <li>
+                        Use the shared instances for login, Firestore reads/writes, and Storage uploads; do not re-create apps in each
+                        component.
+                      </li>
+                      <li>
+                        Avoid Web SDK calls in server components or <code>getServerSideProps</code>; keep Web SDK usage strictly
+                        browser-side.
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div>
+                    <h3 className="text-base font-semibold text-[#141D84] mb-1">5. Keep admin access in Functions only</h3>
+                    <ul className="list-disc pl-6 space-y-1">
+                      <li>
+                        Initialize the <strong>Admin SDK</strong> in Functions with application default credentials or an explicit service
+                        account, targeting <code>formulator-488620</code>.
+                      </li>
+                      <li>
+                        Do <strong>not</strong> reuse <code>NEXT_PUBLIC_FIREBASE_*</code> on the backend; use function env and Firebase
+                        defaults instead.
+                      </li>
+                      <li>
+                        Expose callable/HTTP endpoints for privileged operations (e.g., vector indexing, bulk writes) that the frontend calls.
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div>
+                    <h3 className="text-base font-semibold text-[#141D84] mb-1">6. Local development & safety checks</h3>
+                    <ul className="list-disc pl-6 space-y-1">
+                      <li>
+                        Keep <code>.env.local</code> out of git and populate it using the Firebase console config for
+                        <code>formulator-488620</code>.
+                      </li>
+                      <li>Verify the Firebase app initializes cleanly in the browser console (no config or auth-domain errors).</li>
+                      <li>
+                        Confirm Firestore reads/writes succeed for a logged-in user, and (optionally) that Analytics events appear if
+                        <code>NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID</code> is set.
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </section>
+
+              <section className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
                 <h2 className="text-xl font-semibold mb-3 text-[#141D84]">Feature Test Matrices</h2>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm border border-gray-200 rounded-lg overflow-hidden">
