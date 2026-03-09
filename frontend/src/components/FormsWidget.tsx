@@ -1008,11 +1008,16 @@ export const FormsWidget: React.FC<FormsWidgetProps> = ({
           </div>
           <span className="font-medium text-md tracking-wide">{title || (schema ? "Edit Record" : "Component Gallery")}</span>
         </div>
-        <div className="flex gap-1 items-center">
+        <div className="flex items-center gap-2">
+          {onToggleFullScreen && (
+            <button onClick={(e) => { e.stopPropagation(); onToggleFullScreen(); }} className="p-1.5 hover:bg-white/20 rounded-full text-white/80 hover:text-white transition-colors" title={isFullScreen ? "Exit fullscreen" : "Fullscreen"}>
+              {isFullScreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+            </button>
+          )}
           {onClose ? (
-            <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="p-2 hover:bg-white/10 rounded-full transition-colors"><X size={18} /></button>
+            <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="p-1.5 hover:bg-white/20 rounded-full text-white/80 hover:text-white transition-colors" title="Close"><X size={20} /></button>
           ) : (
-            onExpand && <button onClick={(e) => { e.stopPropagation(); onExpand(); }} className="p-2 hover:bg-white/10 rounded-full transition-colors"><Maximize2 size={18} /></button>
+            onExpand && <button onClick={(e) => { e.stopPropagation(); onExpand(); }} className="p-1.5 hover:bg-white/20 rounded-full text-white/80 hover:text-white transition-colors" title="Expand"><Maximize2 size={18} /></button>
           )}
         </div>
       </div>

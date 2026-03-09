@@ -83,19 +83,20 @@ export function KindleWidget({ onClose, onToggleFullScreen, isFullScreen, agentI
   __agentLog('H6','KindleWidget.tsx:render','render kindle widget',{isFullScreen: !!isFullScreen, hasPdf: !!pdfFile, isPaid, currentPage, zoom, agentId, agentName});
 
   // Persist URL-based selection per agent (File uploads are session-only)
-  try {
-    if (agentId && typeof pdfFile === 'string') {
-      const key = 'htoh_agent_pdf_map_v1';
-      const raw = localStorage.getItem(key);
-      const map = raw ? JSON.parse(raw) : {};
-      map[agentId] = { url: pdfFile, updatedAt: Date.now(), agentName: agentName || '' };
-      localStorage.setItem(key, JSON.stringify(map));
-      __agentLog('H6','KindleWidget.tsx:persist','persist pdf url',{agentId, url: pdfFile});
+  useEffect(() => {
+    try {
+      if (agentId && typeof pdfFile === 'string') {
+        const key = 'htoh_agent_pdf_map_v1';
+        const raw = localStorage.getItem(key);
+        const map = raw ? JSON.parse(raw) : {};
+        map[agentId] = { url: pdfFile, updatedAt: Date.now(), agentName: agentName || '' };
+        localStorage.setItem(key, JSON.stringify(map));
+        __agentLog('H6','KindleWidget.tsx:persist','persist pdf url',{agentId, url: pdfFile});
+      }
+    } catch (e) {
+      __agentLog('H6','KindleWidget.tsx:persistError','persist error',{message: String(e)});
     }
-  } catch (e) {
-    __agentLog('H6','KindleWidget.tsx:persistError','persist error',{message: String(e)});
-  }
-
+  }, [agentId, pdfFile, agentName]);
 
   return (
     <div className="flex flex-col h-full bg-[#0a0a0f] relative">
@@ -118,8 +119,8 @@ export function KindleWidget({ onClose, onToggleFullScreen, isFullScreen, agentI
             <button onClick={handleUploadClick} className="px-3 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 text-white text-xs font-semibold" title="Upload PDF">Upload</button>
             <button onClick={() => { __agentLog('H6','KindleWidget.tsx:clearPdf','clear pdf',{agentId, agentName}); setPdfFile(null); }} className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white/80 text-xs font-semibold" title="Clear PDF">Clear</button>
             {onToggleFullScreen && (
-              <button onClick={onToggleFullScreen} className="p-1.5 hover:bg-white/20 rounded-full text-white/80 hover:text-white" title="Fullscreen">
-                <Maximize2 size={18} />
+              <button onClick={onToggleFullScreen} className="p-1.5 hover:bg-white/20 rounded-full text-white/80 hover:text-white" title={isFullScreen ? "Exit fullscreen" : "Fullscreen"}>
+                {isFullScreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
               </button>
             )}
             <button onClick={onClose} className="p-1.5 hover:bg-white/20 rounded-full text-white/80 hover:text-white" title="Close">

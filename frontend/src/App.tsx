@@ -1241,10 +1241,10 @@ function App() {
           />
         )}
 
-        {/* Right Panel: Expanded Widget View (Desktop). Width 0 when full-screen so chat takes 100%; panel is fixed overlay. */}
+        {/* Right Panel: Expanded Widget View (Desktop). When full-screen, z-[1000] so overlay and Close sit above header (z-100). */}
         {expandedWidget && (
           <aside
-            className="hidden md:block h-full border-l border-gray-200 bg-[#F0F4FA] relative z-10 overflow-visible"
+            className={`hidden md:block h-full border-l border-gray-200 bg-[#F0F4FA] relative overflow-visible ${widgetIsFullScreen ? 'z-[1000]' : 'z-10'}`}
             style={{ width: widgetIsFullScreen ? 0 : `${(1 - splitRatio) * 100}%` }}
           >
             <ExpandedWidgetPanel

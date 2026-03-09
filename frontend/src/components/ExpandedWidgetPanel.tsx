@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { ExpandedWidgetType, AppConfig } from '../types';
-import { X, Maximize2 } from 'lucide-react';
+import { X, Maximize2, Minimize2 } from 'lucide-react';
 import { MapsWidget } from './MapsWidget';
 import { YouTubeWidget } from './YouTubeWidget';
 import { CalendarWidget } from './CalendarWidget';
@@ -72,17 +72,7 @@ export const ExpandedWidgetPanel: React.FC<ExpandedWidgetPanelProps> = ({ type, 
         ? 'fixed top-0 left-0 right-0 bottom-0 z-[500] pb-[80px]' // Full screen overlay above headers
         : 'h-full'}
     `}>
-      {/* Floating Close (X) - always visible in full screen, fixed to viewport so it stays on top */}
-      {isFullScreen && isFullBleed && (
-        <button
-          onClick={onClose}
-          className="fixed top-4 right-4 z-[9999] p-3 rounded-full bg-[#141D84] hover:bg-[#1a25a0] text-white shadow-xl border-2 border-white/50 transition-colors"
-          title="Close"
-          style={{ minWidth: 44, minHeight: 44 }}
-        >
-          <X size={24} strokeWidth={2.5} className="flex-shrink-0" />
-        </button>
-      )}
+      {/* No floating overlay: all full-bleed widgets (Plan, Contacts, Forms, Calendar, Academy, Kindle) use their own header with standard controls (Fullscreen + Close). */}
       {/* Header - Only for generic widgets */}
       {showHeader && (
         <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-gray-50 flex-shrink-0">
@@ -146,13 +136,14 @@ export const ExpandedWidgetPanel: React.FC<ExpandedWidgetPanelProps> = ({ type, 
                      </svg>
                      <span className="font-semibold">Calendar</span>
                    </div>
-                   <button 
-                      onClick={onClose}
-                      className="p-1.5 hover:bg-white/20 rounded-full text-white/80 hover:text-white transition-colors"
-                      title="Close"
-                   >
-                      <X size={20} />
-                   </button>
+                   <div className="flex items-center gap-2">
+                     <button onClick={() => setIsFullScreen(!isFullScreen)} className="p-1.5 hover:bg-white/20 rounded-full text-white/80 hover:text-white transition-colors" title={isFullScreen ? "Exit fullscreen" : "Fullscreen"}>
+                       {isFullScreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+                     </button>
+                     <button onClick={onClose} className="p-1.5 hover:bg-white/20 rounded-full text-white/80 hover:text-white transition-colors" title="Close">
+                       <X size={20} />
+                     </button>
+                   </div>
                  </div>
                  
                  {/* Calendar Content */}

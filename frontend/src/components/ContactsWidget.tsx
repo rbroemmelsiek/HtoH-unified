@@ -374,14 +374,13 @@ export const ContactsWidget: React.FC<ContactsWidgetProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
-            <button onClick={() => setIsEditing(true)} className="flex items-center gap-2 px-3 py-1 bg-white text-[#141D84] rounded-full text-xs font-bold hover:bg-blue-50 transition-colors shadow-sm"><Edit3 size={14} /> Edit</button>
             {onToggleFullScreen && (
-              <button onClick={onToggleFullScreen} className="p-2 hover:bg-white/10 rounded-full transition-colors" title="Toggle Fullscreen">
-                {isFullScreen ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
+              <button onClick={onToggleFullScreen} className="p-1.5 hover:bg-white/20 rounded-full text-white/80 hover:text-white transition-colors" title={isFullScreen ? "Exit fullscreen" : "Fullscreen"}>
+                {isFullScreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
               </button>
             )}
             {onClose && (
-              <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors" title="Close">
+              <button onClick={onClose} className="p-1.5 hover:bg-white/20 rounded-full text-white/80 hover:text-white transition-colors" title="Close">
                 <X size={20} />
               </button>
             )}
@@ -811,14 +810,13 @@ export const ContactsWidget: React.FC<ContactsWidgetProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
-            <button onClick={() => setIsEditing(true)} className="flex items-center gap-2 px-3 py-1 bg-white text-[#141D84] rounded-full text-xs font-bold hover:bg-blue-50 transition-colors shadow-sm"><Edit3 size={14} /> Edit</button>
             {onToggleFullScreen && (
-              <button onClick={onToggleFullScreen} className="p-2 hover:bg-white/10 rounded-full transition-colors" title="Toggle Fullscreen">
-                {isFullScreen ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
+              <button onClick={onToggleFullScreen} className="p-1.5 hover:bg-white/20 rounded-full text-white/80 hover:text-white transition-colors" title={isFullScreen ? "Exit fullscreen" : "Fullscreen"}>
+                {isFullScreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
               </button>
             )}
             {onClose && (
-              <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors" title="Close">
+              <button onClick={onClose} className="p-1.5 hover:bg-white/20 rounded-full text-white/80 hover:text-white transition-colors" title="Close">
                 <X size={20} />
               </button>
             )}
@@ -850,40 +848,20 @@ export const ContactsWidget: React.FC<ContactsWidgetProps> = ({
           </div>
           <h3 className="font-bold text-lg tracking-wide text-white">{tableDef ? tableDef.name : 'Contacts Directory'}</h3>
         </div>
-        <div className="flex gap-2">
-          <div className="h-6 w-px bg-white/20 mx-1"></div>
-
-          <button
-            onClick={() => setIsEditing(true)}
-            className={`p-1.5 hover:bg-white/10 rounded-full transition-colors ${selectedContact ? 'opacity-100' : 'opacity-30 cursor-not-allowed'}`}
-            disabled={!selectedContact}
-            title="Edit Contact"
-          >
-            <Edit3 size={18} />
-          </button>
-
-          <button
-            onClick={(e) => { e.stopPropagation(); toggleViewMode(); }}
-            className="p-1.5 hover:bg-white/10 rounded-full transition-colors flex items-center justify-center w-9 h-9"
-            title={`Switch View (Current: ${viewMode})`}
-          >
-            {viewMode === 'deck' ? <Table size={20} /> : viewMode === 'table' ? <GalleryHorizontalEnd size={20} /> : <LayoutGrid size={20} />}
-          </button>
-
+        <div className="flex items-center gap-2">
           {onToggleFullScreen && (
             <button
               onClick={(e) => { e.stopPropagation(); onToggleFullScreen(); }}
-              className="p-1.5 hover:bg-white/10 rounded-full transition-colors w-9 h-9 flex items-center justify-center"
-              title={isFullScreen ? "Exit Fullscreen" : "Fullscreen"}
+              className="p-1.5 hover:bg-white/20 rounded-full text-white/80 hover:text-white transition-colors"
+              title={isFullScreen ? "Exit fullscreen" : "Fullscreen"}
             >
-              {isFullScreen ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
+              {isFullScreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
             </button>
           )}
-
           {onClose ? (
             <button
               onClick={(e) => { e.stopPropagation(); onClose(); }}
-              className="p-1.5 hover:bg-white/10 rounded-full transition-colors w-9 h-9 flex items-center justify-center"
+              className="p-1.5 hover:bg-white/20 rounded-full text-white/80 hover:text-white transition-colors"
               title="Close"
             >
               <X size={20} />
@@ -892,15 +870,35 @@ export const ContactsWidget: React.FC<ContactsWidgetProps> = ({
             onExpand && !isExpanded && (
               <button
                 onClick={(e) => { e.stopPropagation(); onExpand(); }}
-                className="p-1.5 hover:bg-white/10 rounded-full transition-colors"
+                className="p-1.5 hover:bg-white/20 rounded-full text-white/80 hover:text-white transition-colors"
                 title="Expand"
               >
-                <Maximize2 size={20} />
+                <Maximize2 size={18} />
               </button>
             )
           )}
         </div>
       </div>
+
+      {isExpanded && (
+        <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border-b border-gray-200 shrink-0">
+          <button
+            onClick={() => setIsEditing(true)}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${selectedContact ? 'bg-[#141D84] text-white hover:bg-[#1a25a0]' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
+            disabled={!selectedContact}
+            title="Edit Contact"
+          >
+            <Edit3 size={14} /> Edit
+          </button>
+          <button
+            onClick={toggleViewMode}
+            className="p-1.5 rounded-full bg-gray-200 text-gray-600 hover:bg-gray-300 transition-colors"
+            title={`View: ${viewMode}`}
+          >
+            {viewMode === 'deck' ? <Table size={18} /> : viewMode === 'table' ? <GalleryHorizontalEnd size={18} /> : <LayoutGrid size={18} />}
+          </button>
+        </div>
+      )}
 
       {isExpanded ? (
         // EXPANDED / SPLIT VIEW
