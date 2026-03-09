@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import {Inter, Roboto_Mono} from "next/font/google";
-import Script from "next/script";
 import "./globals.css";
 
 const inter = Inter({
@@ -38,7 +37,6 @@ export default function RootLayout({
         />
       </head>
       <body className={`${inter.variable} ${mono.variable} antialiased bg-[#F0F4FA] text-[#202124] h-screen overflow-hidden`}>
-        <Script src="https://cdn.tailwindcss.com" strategy="beforeInteractive" />
         {children}
       </body>
     </html>
