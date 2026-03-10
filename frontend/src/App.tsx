@@ -949,6 +949,42 @@ function App() {
               </section>
 
               <section className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+                <h2 className="text-xl font-semibold mb-3 text-[#141D84]">App Hosting deploy: &quot;Unable to parse JSON / XML&quot; error</h2>
+                <div className="text-sm text-gray-700 space-y-3">
+                  <div>
+                    <h3 className="text-base font-semibold text-[#141D84] mb-1">What&apos;s going on</h3>
+                    <p>The error <strong>&quot;Unable to parse JSON: SyntaxError: Unexpected token &apos;&lt;&apos;, &apos;&lt;?xml vers&apos;...&quot;</strong> does <strong>not</strong> come from a file in your repo. It happens when:</p>
+                    <ol className="list-decimal pl-6 space-y-1 mt-2">
+                      <li>The Firebase CLI uploads the frontend zip to Google&apos;s App Hosting API.</li>
+                      <li>The server responds with an <strong>XML error document</strong> (e.g. 403 Forbidden, 413 Payload Too Large, 502 Bad Gateway).</li>
+                      <li>The CLI expects JSON and tries to parse that XML as JSON, which fails.</li>
+                    </ol>
+                    <p className="mt-2">So the &quot;bad file&quot; is the <strong>API response</strong>, not your source code.</p>
+                  </div>
+                  <div>
+                    <h3 className="text-base font-semibold text-[#141D84] mb-1">What we fixed in the project</h3>
+                    <p><code>firebase.json</code> → <code>apphosting.ignore</code>: We added <strong>.next</strong> and <strong>out</strong> so the Next.js build cache and output are not included in the zip. That keeps the upload smaller and avoids many server-side errors.</p>
+                  </div>
+                  <div>
+                    <h3 className="text-base font-semibold text-[#141D84] mb-1">How to see the real error</h3>
+                    <p className="mb-1">Run the deploy with <strong>debug</strong> and (optionally) save the log:</p>
+                    <p><code>firebase deploy --only apphosting --project htoh-3-0 --debug</code></p>
+                    <p className="mt-1">Or to save the log:</p>
+                    <p><code>firebase deploy --only apphosting --project htoh-3-0 --debug 2&gt;&amp;1 | Tee-Object -FilePath firebase-deploy-debug.log</code></p>
+                    <p className="mt-2">In the output, look for <strong>HTTP status</strong> (e.g. 403, 413, 502) and <strong>response body</strong>—often an XML or HTML error page that explains the failure.</p>
+                  </div>
+                  <div>
+                    <h3 className="text-base font-semibold text-[#141D84] mb-1">Other checks</h3>
+                    <ul className="list-disc pl-6 space-y-1">
+                      <li><strong>Auth:</strong> <code>firebase login</code> and, if needed, <code>gcloud auth application-default login</code></li>
+                      <li><strong>Backend:</strong> In <a href="https://console.firebase.google.com/project/htoh-3-0/apphosting" target="_blank" rel="noopener noreferrer" className="text-[#141D84] hover:underline">Firebase Console → App Hosting</a>, confirm the backend <strong>htoh-frontend</strong> exists and is set up.</li>
+                      <li><strong>CLI:</strong> <code>npm install -g firebase-tools</code> (or use the latest supported version) so you get current error handling and fixes.</li>
+                    </ul>
+                  </div>
+                </div>
+              </section>
+
+              <section className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
                 <h2 className="text-xl font-semibold mb-3 text-[#141D84]">Firebase Web SDK & Env Setup (Formulator)</h2>
                 <div className="text-sm text-gray-700 space-y-4">
                   <p>
