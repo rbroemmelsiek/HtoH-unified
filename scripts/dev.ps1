@@ -1,8 +1,12 @@
 param(
-    [int[]]$PortsToFree = @(3000, 5001, 5003, 8080)
+    [Parameter(Mandatory = $false)]
+    [switch]$App2,
+    [int[]]$PortsToFree = $(if ($App2) { @(3002, 5002, 5004, 8082) } else { @(3000, 5001, 5003, 8080) }),
+    [int]$FrontendPort = $(if ($App2) { 3002 } else { 3000 })
 )
 
 $ErrorActionPreference = "Stop"
+if ($App2) { Write-Host "Second app mode: frontend port $FrontendPort, freeing ports $($PortsToFree -join ', ')" -ForegroundColor Cyan }
 
 function Stop-Port {
     param(
@@ -34,8 +38,8 @@ $root = Split-Path -Parent $PSScriptRoot
 # Use same PowerShell executable as current process (pwsh or powershell)
 $shellExe = (Get-Process -Id $PID).Path
 
-Write-Host "Starting frontend (Next.js dev server)..."
-$frontendCmd = "cd '$root/frontend'; npm run dev"
+Write-Host "Starting frontend (Next.js dev server) on port $FrontendPort..."
+$frontendCmd = "cd '$root/frontend'; `$env:PORT = '$FrontendPort'; npm run dev"
 Start-Process $shellExe -ArgumentList "-NoExit", "-Command", $frontendCmd
 
 if (Test-Path "$root/functions/package.json") {
@@ -51,7 +55,7 @@ Write-Host ""
 Write-Host "Dev environment started. Frontend and backend are running in separate PowerShell windows." -ForegroundColor Green
 Write-Host ""
 Write-Host "LOCAL URLs:" -ForegroundColor Cyan
-Write-Host "  Frontend (Next.js):  http://localhost:3000"
+Write-Host "  Frontend (Next.js):  http://localhost:$FrontendPort"
 Write-Host "  Functions emulator: http://127.0.0.1:5001"
 Write-Host "  Emulator UI:         http://127.0.0.1:4000"
 Write-Host ""

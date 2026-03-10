@@ -16,6 +16,18 @@ export function AuthLoginPanel({ onClose, showHost = true, className = "" }: Aut
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  /** Turn Firebase auth errors into a user-friendly message (and optional fix). */
+  const getAuthErrorMessage = (e: unknown): string => {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg.includes("configuration-not-found") || (e as { code?: string })?.code === "auth/configuration-not-found") {
+      return "Firebase Authentication is not enabled for this project. In Firebase Console → Authentication, click “Get started”, then enable the “Google” sign-in provider and set a support email.";
+    }
+    if (msg.includes("invalid-api-key") || (e as { code?: string })?.code === "auth/invalid-api-key") {
+      return "Invalid Firebase API key. Check NEXT_PUBLIC_FIREBASE_API_KEY in .env.local and restart the dev server.";
+    }
+    return msg || "Sign-in failed";
+  };
+
   const handleGoogle = async () => {
     setError(null);
     setBusy(true);
@@ -23,7 +35,7 @@ export function AuthLoginPanel({ onClose, showHost = true, className = "" }: Aut
       await signInWithGoogle();
       onClose?.();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Sign-in failed");
+      setError(getAuthErrorMessage(e));
     } finally {
       setBusy(false);
     }
@@ -35,7 +47,7 @@ export function AuthLoginPanel({ onClose, showHost = true, className = "" }: Aut
     try {
       await signInWithRedirectFallback();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Redirect failed");
+      setError(getAuthErrorMessage(e));
       setBusy(false);
     }
   };
@@ -107,6 +119,16 @@ export function AuthLoginPanel({ onClose, showHost = true, className = "" }: Aut
           {error && (
             <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded" role="alert">
               {error}
+              {error.includes("Firebase Console") && (
+                <a
+                  href="https://console.firebase.google.com/project/htoh-3-0/authentication/providers"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block mt-2 text-[#141D84] hover:underline font-medium"
+                >
+                  Open Authentication settings →
+                </a>
+              )}
             </p>
           )}
           <div className="flex flex-wrap gap-2">

@@ -823,11 +823,18 @@ function App() {
               <section className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
                 <h2 className="text-xl font-semibold mb-3 text-[#141D84]">Quick Links</h2>
                 <div className="text-sm space-y-2">
-                  <p className="font-medium text-gray-800">Apps</p>
+                  <p className="font-medium text-gray-800">Apps (local = from repo root after <code>.\scripts\dev.ps1</code>)</p>
                   <ul className="list-none space-y-1">
-                    <li><a href="http://127.0.0.1:3011" target="_blank" rel="noopener noreferrer" className="text-[#141D84] hover:underline">Local frontend</a></li>
-                    <li><a href="http://127.0.0.1:14001" target="_blank" rel="noopener noreferrer" className="text-[#141D84] hover:underline">Local Emulator Suite UI</a></li>
+                    <li><a href="http://localhost:3000" target="_blank" rel="noopener noreferrer" className="text-[#141D84] hover:underline">Local frontend (port 3000)</a></li>
+                    <li><a href="http://127.0.0.1:4000" target="_blank" rel="noopener noreferrer" className="text-[#141D84] hover:underline">Emulator UI (port 4000)</a></li>
                     <li><a href="https://htoh-frontend--htoh-3-0.us-central1.hosted.app" target="_blank" rel="noopener noreferrer" className="text-[#141D84] hover:underline">Cloud frontend</a></li>
+                  </ul>
+                  <p className="font-medium text-gray-800 mt-3">Scripts (run from repo root)</p>
+                  <ul className="list-none space-y-1">
+                    <li><code>.\scripts\dev.ps1</code> — Start frontend + backend (frees 3000, 5001, 5003, 8080 then starts)</li>
+                    <li><code>.\scripts\dev.ps1 -App2</code> — Second app on port 3002 (frees 3002, 5002, 5004, 8082)</li>
+                    <li><code>.\scripts\stop-dev.ps1</code> — Stop dev servers on default ports</li>
+                    <li><code>.\scripts\stop-dev.ps1 -App2</code> — Stop second app only (3002, 5002, 5004, 8082)</li>
                   </ul>
                   <p className="font-medium text-gray-800 mt-3">Backend Functions</p>
                   <ul className="list-none space-y-1">
@@ -901,9 +908,28 @@ function App() {
               </section>
 
               <section className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+                <h2 className="text-xl font-semibold mb-3 text-[#141D84]">Ports (scripts)</h2>
+                <p className="text-sm text-gray-700 mb-2">Ports freed and used by <code>scripts\dev.ps1</code> / <code>scripts\stop-dev.ps1</code>:</p>
+                <table className="text-sm w-full border border-gray-200">
+                  <thead>
+                    <tr className="bg-gray-50">
+                      <th className="text-left p-2 border-b border-gray-200">App</th>
+                      <th className="text-left p-2 border-b border-gray-200">Ports freed / used</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-gray-700">
+                    <tr><td className="p-2 border-b border-gray-100">Default (this app)</td><td className="p-2 border-b border-gray-100">3000 (frontend), 5001 (functions), 5003, 8080</td></tr>
+                    <tr><td className="p-2 border-b border-gray-100">Second app (<code>-App2</code>)</td><td className="p-2 border-b border-gray-100">3002 (frontend), 5002, 5004, 8082</td></tr>
+                  </tbody>
+                </table>
+                <p className="text-sm text-gray-600 mt-2">Emulator UI (from Firebase) is typically port 4000; Hub 4400. Auth/Firestore/Storage emulator ports are set in <code>firebase.json</code> if you run full emulator suite.</p>
+              </section>
+
+              <section className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
                 <h2 className="text-xl font-semibold mb-3 text-[#141D84]">Startup</h2>
                 <div className="text-sm text-gray-700 space-y-2">
-                  <p><strong>Frontend:</strong> <code>npm run dev --workspace=frontend -- -p 3011</code></p>
+                  <p><strong>One command (recommended):</strong> <code>.\scripts\dev.ps1</code> from repo root — stops default ports, starts frontend (3000) and backend in new windows.</p>
+                  <p><strong>Manual:</strong> <code>npm run dev --workspace=frontend</code> (frontend on 3000), <code>npm run serve --workspace=functions</code> (emulator).</p>
                   <p><strong>Functions Build:</strong> <code>npm run build --workspace=functions</code></p>
                   <p><strong>Functions Deploy:</strong> <code>firebase deploy --only functions --project htoh-3-0</code></p>
                   <p>After any <code>.env.local</code> change, restart the frontend dev server.</p>
@@ -916,9 +942,9 @@ function App() {
                   <p><strong>Deploy frontend:</strong> <code>firebase deploy --only apphosting --project htoh-3-0</code></p>
                   <p><strong>Deploy frontend (shortcut):</strong> <code>npm run deploy:frontend --workspace=frontend</code></p>
                   <p><strong>Functions list:</strong> <code>firebase functions:list --project htoh-3-0</code></p>
-                  <p><strong>Emulators:</strong> <code>firebase emulators:start</code></p>
+                  <p><strong>Emulators:</strong> <code>firebase emulators:start</code> (or <code>npm run serve</code> in <code>functions</code>)</p>
                   <p><strong>App Hosting config:</strong> <code>frontend/apphosting.yaml</code></p>
-                  <p>Configured emulator ports: Auth 9099, Functions 5001, Firestore 8080, Storage 9199, UI 4000.</p>
+                  <p>Emulator ports (when running full suite): Auth 9099, Functions 5001, Firestore 8080, Storage 9199, UI 4000.</p>
                 </div>
               </section>
 
