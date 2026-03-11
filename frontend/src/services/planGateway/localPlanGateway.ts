@@ -1,4 +1,4 @@
-import { PlanGateway, PlanGatewayPostResponse, PlanGatewayResponse, PlanUpdateCallback, Unsubscribe } from './types';
+import { PlanGateway, PlanGatewayPostResponse, PlanGatewayResponse, PlanSummary, PlanUpdateCallback, Unsubscribe } from './types';
 import { PlanRow } from '../../types/planApp/planRow';
 
 // Local storage key for plan data
@@ -114,7 +114,7 @@ export default class LocalPlanGateway implements PlanGateway {
     params: Record<string, unknown>
   ): Promise<PlanGatewayResponse> {
     console.log('[LocalPlanGateway] Fetch:', action, params);
-    return { ...this.currentPlan };
+    return { planId: 'local', ...this.currentPlan };
   }
 
   async post(
@@ -169,5 +169,24 @@ export default class LocalPlanGateway implements PlanGateway {
         console.error('[LocalPlanGateway] Error in callback:', e);
       }
     });
+  }
+
+  async createPlan(_ownerId: string, name = 'My Service Plan'): Promise<string> {
+    const created: PlanGatewayResponse = {
+      planId: 'local',
+      name,
+      root: { children: [] },
+    };
+    this.updatePlan(created);
+    return 'local';
+  }
+
+  async listPlans(_ownerId: string): Promise<PlanSummary[]> {
+    return [
+      {
+        id: 'local',
+        name: this.currentPlan.name || 'My Service Plan',
+      },
+    ];
   }
 }

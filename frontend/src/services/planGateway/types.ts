@@ -1,6 +1,7 @@
 import { PlanRow } from '../../types/planApp/planRow';
 
 export interface PlanGatewayResponse {
+  planId?: string;
   name?: string;
   root: { children: PlanRow[] };
 }
@@ -11,6 +12,11 @@ export interface PlanGatewayPostResponse {
 
 export type PlanUpdateCallback = (response: PlanGatewayResponse) => void;
 export type Unsubscribe = () => void;
+
+export interface PlanSummary {
+  id: string;
+  name: string;
+}
 
 export interface PlanGateway {
   fetch(
@@ -26,4 +32,7 @@ export interface PlanGateway {
     params: Record<string, unknown>,
     callback: PlanUpdateCallback
   ): Unsubscribe;
+  updatePlan?(plan: PlanGatewayResponse, planId?: string, ownerId?: string): void | Promise<void>;
+  createPlan?(ownerId: string, name?: string): Promise<string>;
+  listPlans?(ownerId: string): Promise<PlanSummary[]>;
 }

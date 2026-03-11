@@ -9,6 +9,7 @@ import ConfirmResetModal from './ConfirmResetModal';
 import VideoModal from './VideoModal';
 import SettingsModal from './SettingsModal';
 import ProgressNav from './ProgressNav';
+import PlanSwitcher from './PlanSwitcher';
 
 const PlanApp: React.FC = () => {
   const { state, dispatch } = usePlan();
@@ -35,6 +36,7 @@ const PlanApp: React.FC = () => {
       <div className="w-full max-w-4xl px-0 md:px-4 flex flex-col items-center gap-[10px] md:gap-4 mt-[10px] md:mt-6 overflow-x-hidden">
         {/* Header Area: Padding adjusted to 10px spacing rule on mobile */}
         <div className="w-full mb-0 md:mb-4 flex flex-col items-center gap-[10px] md:gap-4 px-4 md:px-0">
+          <PlanSwitcher />
           <h1 className="text-[1.2em] font-normal font-serif text-gray-800 tracking-tight">{state.plan.name}</h1>
           
           <div className="w-full flex justify-between items-center gap-2 md:gap-4">

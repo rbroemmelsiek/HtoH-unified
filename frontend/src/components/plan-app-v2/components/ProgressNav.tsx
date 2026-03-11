@@ -1,5 +1,5 @@
 
-import React, { useLayoutEffect, useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { usePlan } from '../context/PlanContext';
 import { hasTaskDescendant, findRowInTree } from '../utils/planHelpers';
 import { PlanRow } from '../types';
@@ -16,7 +16,6 @@ const __agentLog = (hypothesisId: string, location: string, message: string, dat
 const ProgressNav: React.FC = () => {
   const { state, dispatch } = usePlan();
   const navContainerRef = useRef<HTMLDivElement>(null);
-  const labelRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   const [isCompact, setIsCompact] = useState(false);
@@ -25,37 +24,32 @@ const ProgressNav: React.FC = () => {
     (panel) => panel.type === 'panel' && hasTaskDescendant(panel)
   );
 
-  labelRefs.current = [];
-
   useEffect(() => {
-    setIsCompact(false);
-  }, [navItems.length]);
-
-  useEffect(() => {
-    const handleResize = () => setIsCompact(false);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  useLayoutEffect(() => {
-    if (isCompact) return; 
-
-    const checkTruncation = () => {
-      if (!labelRefs.current.length || navItems.length === 0) return;
-      let truncatedCount = 0;
-      let total = 0;
-      labelRefs.current.forEach((el) => {
-        if (el) {
-          total++;
-          if (el.scrollWidth > el.clientWidth) truncatedCount++;
-        }
-      });
-      if (total > 0 && (truncatedCount / total) > 0.5) {
-        setIsCompact(true);
-      }
+    const updateCompactMode = () => {
+      const container = navContainerRef.current;
+      if (!container) return;
+      const availableWidth = container.clientWidth;
+      // Lower threshold so nav reliably returns to arrow mode as pane widens.
+      const minSegmentWidth = 132;
+      const requiredWidth = navItems.length * minSegmentWidth;
+      setIsCompact(requiredWidth > availableWidth);
     };
-    checkTruncation();
-  }, [navItems, state.plan, isCompact]); 
+
+    updateCompactMode();
+
+    const container = navContainerRef.current;
+    let observer: ResizeObserver | null = null;
+    if (container && typeof ResizeObserver !== 'undefined') {
+      observer = new ResizeObserver(updateCompactMode);
+      observer.observe(container);
+    }
+    window.addEventListener('resize', updateCompactMode);
+
+    return () => {
+      if (observer) observer.disconnect();
+      window.removeEventListener('resize', updateCompactMode);
+    };
+  }, [navItems.length]);
 
   if (navItems.length === 0) return null;
 
@@ -175,6 +169,7 @@ const ProgressNav: React.FC = () => {
         return {
             zIndex: (navItems.length - index) + 10,
             borderRight: index < navItems.length - 1 ? '1px solid rgba(255,255,255,0.3)' : 'none',
+            marginRight: index < navItems.length - 1 ? '4px' : '0px',
         };
     }
     const arrowSize = '1.2rem';
@@ -238,8 +233,8 @@ const ProgressNav: React.FC = () => {
     let clipPath, paddingLeft = '0.5rem', paddingRight = '0.5rem';
     if (isCompact) {
         clipPath = 'none'; 
-        paddingLeft = '0.25rem';
-        paddingRight = '0.25rem';
+        paddingLeft = '0.6rem';
+        paddingRight = '0.6rem';
     } else {
         const isLast = (index === navItems.length - 1);
         paddingLeft = index === 0 ? '0.75rem' : `calc(${arrowSize} + 0.5rem)`;
@@ -288,10 +283,7 @@ const ProgressNav: React.FC = () => {
                 >
                   <div className={`flex items-center w-full z-10 ${isCompact ? 'justify-center' : 'px-2'}`}>
                       {!isCompact && <CaretRightFillIcon className="flex-shrink-0 w-3 h-3 mr-1 text-white opacity-90 drop-shadow-md" />}
-                      <span 
-                        ref={el => { labelRefs.current[index] = el }}
-                        className="truncate drop-shadow-md text-left flex-grow text-shadow-sm"
-                      >
+                      <span className="truncate drop-shadow-md text-left flex-grow text-shadow-sm">
                         {panel.name || "PANEL"}
                       </span>
                   </div>

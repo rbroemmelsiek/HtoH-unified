@@ -46,12 +46,14 @@ const PanelRow: React.FC<PanelRowProps> = ({ element }) => {
         row={element} 
         isPanel={true}
         icon={
-          <div 
-            onClick={handleToggle} 
-            className="cursor-pointer hover:bg-white/20 rounded p-0.5"
-          >
-            {element.opened ? <CaretDownFillIcon className="w-3.5 h-3.5" /> : <CaretRightFillIcon className="w-3.5 h-3.5" />}
-          </div>
+          element.children.length > 0 ? (
+            <div 
+              onClick={handleToggle} 
+              className="cursor-pointer hover:bg-white/20 rounded p-0.5"
+            >
+              {element.opened ? <CaretDownFillIcon className="w-3.5 h-3.5" /> : <CaretRightFillIcon className="w-3.5 h-3.5" />}
+            </div>
+          ) : null
         }
       />
     </div>

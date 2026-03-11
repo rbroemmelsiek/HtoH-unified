@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 import type { User } from "firebase/auth";
 import {
   GoogleAuthProvider,
@@ -11,12 +11,16 @@ import {
   onAuthStateChanged,
 } from "firebase/auth";
 import { firebaseAuth } from "../lib/firebase";
+import { firebaseFirestore } from "../lib/firebase";
+import { doc, getDoc, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
+import planGateway from "../services/planGateway/planGateway";
 
 /** Sign-up tier: which sign-in methods are allowed. Extend later for paid tiers (e.g. email link). */
 export type SignUpTier = "free" | "paid";
 
 export interface AuthContextValue {
   user: User | null;
+  userProfile: UserProfile | null;
   loading: boolean;
   /** False when Firebase Auth is not configured (missing API key in .env.local). */
   isConfigured: boolean;
@@ -27,8 +31,17 @@ export interface AuthContextValue {
   /** Clear auth state (useful for debugging / switching accounts). */
   resetAuthState: () => Promise<void>;
   signOut: () => Promise<void>;
+  setCurrentPlanId: (planId: string) => Promise<void>;
   /** Current tier; use to show/hide sign-in methods. */
   tier: SignUpTier;
+}
+
+export interface UserProfile {
+  uid: string;
+  email: string | null;
+  displayName: string | null;
+  photoURL: string | null;
+  currentPlanId: string | null;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -47,8 +60,51 @@ interface AuthProviderProps {
 
 export function AuthProvider({ children, defaultTier = "free" }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [tier] = useState<SignUpTier>(defaultTier);
+
+  const ensureUserDoc = useCallback(async (authUser: User): Promise<UserProfile> => {
+    if (!firebaseFirestore) {
+      return {
+        uid: authUser.uid,
+        email: authUser.email,
+        displayName: authUser.displayName,
+        photoURL: authUser.photoURL,
+        currentPlanId: null,
+      };
+    }
+
+    const userRef = doc(firebaseFirestore, "users", authUser.uid);
+    const userSnap = await getDoc(userRef);
+
+    if (!userSnap.exists()) {
+      await setDoc(userRef, {
+        uid: authUser.uid,
+        email: authUser.email ?? null,
+        displayName: authUser.displayName ?? null,
+        photoURL: authUser.photoURL ?? null,
+        createdAt: serverTimestamp(),
+        currentPlanId: null,
+      });
+    }
+
+    const latestUserSnap = userSnap.exists() ? userSnap : await getDoc(userRef);
+    let currentPlanId = (latestUserSnap.data()?.currentPlanId as string | null | undefined) ?? null;
+    if (!currentPlanId) {
+      const newPlanId = await planGateway.createPlan(authUser.uid, "My Service Plan");
+      await updateDoc(userRef, { currentPlanId: newPlanId });
+      currentPlanId = newPlanId;
+    }
+
+    return {
+      uid: authUser.uid,
+      email: authUser.email,
+      displayName: authUser.displayName,
+      photoURL: authUser.photoURL,
+      currentPlanId,
+    };
+  }, []);
 
   useEffect(() => {
     if (!firebaseAuth) {
@@ -57,10 +113,21 @@ export function AuthProvider({ children, defaultTier = "free" }: AuthProviderPro
     }
     const unsubscribe = onAuthStateChanged(firebaseAuth, (u) => {
       setUser(u);
-      setLoading(false);
+      if (!u) {
+        setUserProfile(null);
+        setLoading(false);
+        return;
+      }
+      void ensureUserDoc(u)
+        .then((profile) => setUserProfile(profile))
+        .catch((err) => {
+          console.error("[Auth] Failed to ensure user doc:", err);
+          setUserProfile(null);
+        })
+        .finally(() => setLoading(false));
     });
     return () => unsubscribe();
-  }, []);
+  }, [ensureUserDoc]);
 
   // Handle redirect result (when user returns from Google redirect).
   useEffect(() => {
@@ -110,14 +177,30 @@ export function AuthProvider({ children, defaultTier = "free" }: AuthProviderPro
     await firebaseSignOut(firebaseAuth);
   };
 
+  const setCurrentPlanId = async (planId: string) => {
+    if (!user?.uid || !firebaseFirestore) return;
+    const userRef = doc(firebaseFirestore, "users", user.uid);
+    await updateDoc(userRef, { currentPlanId: planId });
+    setUserProfile((prev) =>
+      prev
+        ? {
+            ...prev,
+            currentPlanId: planId,
+          }
+        : prev
+    );
+  };
+
   const value: AuthContextValue = {
     user,
+    userProfile,
     loading,
     isConfigured: !!firebaseAuth,
     signInWithGoogle,
     signInWithRedirectFallback,
     resetAuthState,
     signOut,
+    setCurrentPlanId,
     tier,
   };
 

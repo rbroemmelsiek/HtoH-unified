@@ -1,9 +1,10 @@
 
-import React, { createContext, useContext, useReducer, ReactNode, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, ReactNode, useEffect, useState } from 'react';
 import { PlanDocument, PlanRow, AddChildType } from '../types';
 import { SAMPLE_PLAN } from '../constants';
 import { clonePlan, findRowInTree, findFamily, getDummyElement, findParent, deleteRowFromTree, findPathToNode, generateId } from '../utils/planHelpers';
 import planGateway from '../../../services/planGateway/planGateway';
+import { useAuth } from '../../../context/AuthContext';
 
 interface PlanState {
   plan: PlanDocument;
@@ -235,18 +236,32 @@ const planReducer = (state: PlanState, action: Action): PlanState => {
 };
 
 const PlanContext = createContext<{ state: PlanState; dispatch: React.Dispatch<Action> } | undefined>(undefined);
-export const PlanProvider = ({ children }: { children?: ReactNode }) => {
+export const PlanProvider = ({ children, planId, ownerId }: { children?: ReactNode; planId?: string; ownerId?: string }) => {
   const [state, dispatch] = useReducer(planReducer, initialState);
+  const [activePlanId, setActivePlanId] = useState<string | undefined>(planId);
+  const [hasLoadedPlan, setHasLoadedPlan] = useState(false);
+  const { user, userProfile } = useAuth();
+
+  const resolvedOwnerId = ownerId || user?.uid;
+  const resolvedPlanId = planId || userProfile?.currentPlanId || undefined;
+
+  useEffect(() => {
+    setActivePlanId(resolvedPlanId);
+  }, [resolvedPlanId]);
 
   // Load an existing plan document from the active gateway (local storage today, Firebase later).
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
     let cancelled = false;
+    setHasLoadedPlan(false);
 
     (async () => {
       try {
-        const response = await planGateway.fetch('load', {});
+        const response = await planGateway.fetch('load', {
+          planId: resolvedPlanId,
+          uid: resolvedOwnerId,
+        });
         if (cancelled || !response || !response.root) return;
 
         const loadedPlan: PlanDocument = {
@@ -257,6 +272,8 @@ export const PlanProvider = ({ children }: { children?: ReactNode }) => {
         };
 
         dispatch({ type: 'INIT_PLAN', payload: loadedPlan });
+        setActivePlanId(response.planId || resolvedPlanId);
+        setHasLoadedPlan(true);
       } catch (e) {
         console.error('[PlanProvider] Failed to load plan from gateway', e);
       }
@@ -265,21 +282,22 @@ export const PlanProvider = ({ children }: { children?: ReactNode }) => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [resolvedOwnerId, resolvedPlanId]);
 
   // Persist plan changes through the gateway (currently LocalPlanGateway → localStorage).
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || !hasLoadedPlan) return;
 
     planGateway
       .updatePlan({
+        planId: activePlanId,
         name: state.plan.name,
         root: { children: state.plan.root.children },
-      })
+      }, activePlanId, resolvedOwnerId)
       .catch((e) => {
         console.error('[PlanProvider] Failed to persist plan via gateway', e);
       });
-  }, [state.plan]);
+  }, [activePlanId, hasLoadedPlan, resolvedOwnerId, state.plan]);
 
   return <PlanContext.Provider value={{ state, dispatch }}>{children}</PlanContext.Provider>;
 };

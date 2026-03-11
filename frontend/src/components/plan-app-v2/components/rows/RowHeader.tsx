@@ -36,6 +36,8 @@ const RowHeader: React.FC<RowHeaderProps> = ({ row, children, icon, className = 
   const inputRef = useRef<HTMLInputElement>(null);
   const editContainerRef = useRef<HTMLDivElement>(null);
   const ghostMirrorRef = useRef<HTMLSpanElement>(null);
+  const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressTriggeredRef = useRef(false);
 
   useEffect(() => {
     setLocalName(row.name);
@@ -188,13 +190,48 @@ const RowHeader: React.FC<RowHeaderProps> = ({ row, children, icon, className = 
   };
 
   const renderDisplayMode = () => {
+    const hasChildren = row.children.length > 0;
+    const startEditMode = () => dispatch({ type: 'START_EDIT', payload: row.eid });
+    const toggleChildren = () => {
+      if (!hasChildren) return;
+      dispatch({ type: 'TOGGLE_OPEN', payload: row.eid });
+    };
+    const clearHoldTimer = () => {
+      if (holdTimerRef.current) {
+        clearTimeout(holdTimerRef.current);
+        holdTimerRef.current = null;
+      }
+    };
+
     return (
       <div 
         className={`flex-grow flex items-center cursor-pointer mr-2 ${isPanel ? "text-white font-bold" : "text-gray-900"} min-w-0`}
-        onClick={() => dispatch({ type: 'START_EDIT', payload: row.eid })}
+        onClick={() => {
+          if (longPressTriggeredRef.current) {
+            longPressTriggeredRef.current = false;
+            return;
+          }
+          toggleChildren();
+        }}
+        onDoubleClick={(e) => {
+          e.stopPropagation();
+          clearHoldTimer();
+          startEditMode();
+        }}
+        onPointerDown={() => {
+          longPressTriggeredRef.current = false;
+          clearHoldTimer();
+          holdTimerRef.current = setTimeout(() => {
+            longPressTriggeredRef.current = true;
+            startEditMode();
+          }, 500);
+        }}
+        onPointerUp={clearHoldTimer}
+        onPointerCancel={clearHoldTimer}
+        onPointerLeave={clearHoldTimer}
       >
         <span className={`truncate ${!row.name ? "italic opacity-60" : ""}`}>
-            {row.name || (isPanel ? "Click to name panel" : "Click to edit")}
+            {row.name || (isPanel ? "Panel" : "New item")}
         </span>
         {children}
         

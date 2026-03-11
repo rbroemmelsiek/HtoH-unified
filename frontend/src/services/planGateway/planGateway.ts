@@ -1,7 +1,7 @@
 // React-compatible PlanGateway adapter
 // This adapts the Vue planGateway to work with React/Redux (and future Firebase).
 
-import { PlanGatewayResponse, PlanGatewayPostResponse, PlanUpdateCallback, Unsubscribe } from './types';
+import { PlanGatewayResponse, PlanGatewayPostResponse, PlanSummary, PlanUpdateCallback, Unsubscribe } from './types';
 
 // Import Firebase services directly (they're not Vue-specific)
 // We'll need to copy/adapt the Firebase gateway implementation
@@ -77,11 +77,11 @@ class PlanGatewayService {
 
   // Persist the latest plan document through the active gateway.
   // Local gateway uses localStorage; future Firebase gateway can override updatePlan.
-  async updatePlan(plan: PlanGatewayResponse): Promise<void> {
+  async updatePlan(plan: PlanGatewayResponse, planId?: string, ownerId?: string): Promise<void> {
     const gw: any = await getGateway();
 
     if (typeof gw.updatePlan === 'function') {
-      gw.updatePlan(plan);
+      await gw.updatePlan(plan, planId, ownerId);
       return;
     }
 
@@ -92,6 +92,22 @@ class PlanGatewayService {
         console.error('[planGateway] updatePlan fallback failed', e);
       }
     }
+  }
+
+  async createPlan(ownerId: string, name = 'My Service Plan'): Promise<string> {
+    const gw: any = await getGateway();
+    if (typeof gw.createPlan === 'function') {
+      return gw.createPlan(ownerId, name);
+    }
+    throw new Error('Active plan gateway does not support createPlan');
+  }
+
+  async listPlans(ownerId: string): Promise<PlanSummary[]> {
+    const gw: any = await getGateway();
+    if (typeof gw.listPlans === 'function') {
+      return gw.listPlans(ownerId);
+    }
+    return [];
   }
 }
 

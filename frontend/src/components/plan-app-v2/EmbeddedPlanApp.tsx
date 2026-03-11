@@ -13,10 +13,12 @@ export interface EmbeddedPlanAppProps {
   planId?: string;
   ownerId?: string | number;
   showNav?: boolean;
+  mode?: string;
+  sessionType?: string;
+  keyId?: string;
 }
 
 export default function EmbeddedPlanApp(props: EmbeddedPlanAppProps) {
   __agentLog('H4','EmbeddedPlanApp.tsx:render','render new AI Studio plan app',{planAppVariant:'ai_studio_react_plan_app_v2',...props});
-  // App already includes PlanProvider.
-  return <App />;
+  return <App planId={props.planId} ownerId={props.ownerId?.toString()} />;
 }

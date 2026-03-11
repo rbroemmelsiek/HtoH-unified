@@ -27,8 +27,8 @@ export const PlanWidget: React.FC<PlanWidgetProps> = ({
   onClose,
   onToggleFullScreen,
   isFullScreen = false,
-  planId = 'plan',
-  ownerId = '0',
+  planId,
+  ownerId,
   showNav = true, // Show nav in expanded mode by default
   loadKey = 0
 }) => {
@@ -66,7 +66,7 @@ export const PlanWidget: React.FC<PlanWidgetProps> = ({
         </div>
         <div className="flex items-center gap-2">
           <a
-            href={`http://localhost:${planAppPort}/?plantype=${planId}&owner=${ownerId}&page=widget&sessiontype=AGENT&nav=${showNav}`}
+            href={`http://localhost:${planAppPort}/?plantype=${planId ?? ''}&owner=${ownerId ?? ''}&page=widget&sessiontype=AGENT&nav=${showNav}`}
             target="_blank"
             rel="noopener noreferrer"
             className="p-1.5 hover:bg-white/20 rounded-full text-white/80 hover:text-white transition-colors"

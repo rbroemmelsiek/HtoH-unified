@@ -47,7 +47,7 @@ type ToolsMenuMode = 'main' | 'services' | 'transactional' | 'vendor';
 type AppView = 'dashboard' | 'academy' | 'help';
 
 function App() {
-  const { user } = useAuth();
+  const { user, userProfile } = useAuth();
   // Navigation state - Dashboard or Academy
   const [currentView, setCurrentView] = useState<AppView>('dashboard');
   // Load agents from localStorage or fallback to INITIAL_AGENTS
@@ -162,8 +162,8 @@ function App() {
       if (expandedWidget !== 'plan') {
         setExpandedWidget('plan');
         setExpandedWidgetData({
-          planId: 'plan',
-          ownerId: '0'
+          planId: userProfile?.currentPlanId,
+          ownerId: user?.uid
         });
       }
     };
@@ -172,7 +172,7 @@ function App() {
     return () => {
       window.removeEventListener('plan-nav-click', handlePlanNavClick);
     };
-  }, [expandedWidget]);
+  }, [expandedWidget, user?.uid, userProfile?.currentPlanId]);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -422,8 +422,14 @@ function App() {
   };
 
   const handleExpandWidget = (type: ExpandedWidgetType, data?: any) => {
+    const nextData = type === 'plan'
+      ? {
+          planId: data?.planId ?? userProfile?.currentPlanId,
+          ownerId: data?.ownerId ?? user?.uid,
+        }
+      : data;
     setExpandedWidget(type);
-    setExpandedWidgetData(data);
+    setExpandedWidgetData(nextData);
     setExpandedInstance(prev => prev + 1);
   };
 
@@ -1154,8 +1160,11 @@ function App() {
 
         {/* Left Panel: Main App Content */}
         <main
-          className={`flex flex-col h-full relative transition-all duration-300 ${expandedWidget && !widgetIsFullScreen ? 'border-r border-gray-200' : ''}`}
-          style={{ width: expandedWidget && !widgetIsFullScreen ? `${splitRatio * 100}%` : '100%', userSelect: isResizingSplit ? 'none' : undefined }}
+          className={`flex flex-col h-full relative ${isResizingSplit ? '' : 'transition-all duration-300'} ${expandedWidget && !widgetIsFullScreen ? 'border-r border-gray-200' : ''}`}
+          style={{
+            width: expandedWidget && !widgetIsFullScreen ? `calc(${splitRatio * 100}% - 4px)` : '100%',
+            userSelect: isResizingSplit ? 'none' : undefined
+          }}
         >
 
           {/* Messages Area - Scrollable Flex Item */}
@@ -1226,16 +1235,16 @@ function App() {
 
               {/* Unified Input Bar */}
               <div className="flex items-end gap-2 w-full">
-                <div className="flex-1 relative flex items-stretch gap-2 bg-[#F0F4FA] border border-gray-300 rounded-[24px] px-2 py-1.5 focus-within:ring-2 focus-within:ring-[#141D84] focus-within:border-transparent focus-within:bg-white transition-all shadow-inner w-full">
+                <div className="flex-1 relative flex items-stretch gap-2 bg-[#F0F4FA] border border-gray-200 rounded-[24px] px-2 py-1.5 focus-within:ring-1 focus-within:ring-[#5972d0] focus-within:border-[#5972d0] focus-within:bg-white transition-all shadow-inner w-full">
 
                   {/* Left Icons Group */}
-                  <div className="flex flex-col justify-end border-r border-gray-300 pr-2 mr-1 pb-0.5 flex-shrink-0">
-                    <div className="flex gap-1">
+                  <div className="flex items-center border-r border-gray-300 pr-2 mr-1 flex-shrink-0">
+                    <div className="flex items-center gap-1">
                       {/* Tools Menu Button */}
                       <div className="relative">
                         <button
                           onClick={() => { setShowToolsMenu(!showToolsMenu); setToolsMenuMode('main'); }}
-                          className="p-1.5 rounded-full flex-shrink-0 bg-[#141D84] text-[#F9FAFB] hover:bg-gray-100 hover:text-[#141D84] transition-colors"
+                          className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 bg-[#141D84] text-[#F9FAFB] hover:bg-white hover:text-[#141D84] transition-colors"
                           title="Add Tool"
                         >
                           <Plus size={18} />
@@ -1252,7 +1261,7 @@ function App() {
                       <button
                         onClick={toggleListening}
                         className={`
-                          p-1.5 rounded-full flex-shrink-0 transition-all duration-200
+                          w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-all duration-200
                           ${isListening
                             ? 'bg-red-50 text-red-500'
                             : 'text-gray-500 hover:bg-[#141D84]/10 hover:text-[#141D84]'}
@@ -1277,7 +1286,7 @@ function App() {
                   />
 
                   {/* Right Actions Group */}
-                  <div className="flex flex-col justify-end pb-0.5 pr-0.5">
+                  <div className="flex items-center pr-0.5">
                     <div className="flex items-center gap-1">
                       {/* Send Button */}
                       <button
@@ -1338,8 +1347,8 @@ function App() {
         {/* Right Panel: Expanded Widget View (Desktop). When full-screen, z-[1000] so overlay and Close sit above header (z-100). */}
         {expandedWidget && (
           <aside
-            className={`hidden md:block h-full border-l border-gray-200 bg-[#F0F4FA] relative overflow-visible ${widgetIsFullScreen ? 'z-[1000]' : 'z-10'}`}
-            style={{ width: widgetIsFullScreen ? 0 : `${(1 - splitRatio) * 100}%` }}
+            className={`hidden md:block h-full border-l border-gray-200 bg-[#F0F4FA] relative overflow-visible ${isResizingSplit ? '' : 'transition-all duration-300'} ${widgetIsFullScreen ? 'z-[1000]' : 'z-10'}`}
+            style={{ width: widgetIsFullScreen ? 0 : `calc(${(1 - splitRatio) * 100}% - 4px)` }}
           >
             <ExpandedWidgetPanel
               key={`${expandedWidget}-${expandedInstance}`}
