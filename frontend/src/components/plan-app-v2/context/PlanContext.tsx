@@ -44,6 +44,7 @@ type Action =
   | { type: 'SET_DROPPED_ROW'; payload: string | null }
   | { type: 'TOGGLE_OPEN'; payload: string }
   | { type: 'TOGGLE_ALL'; payload: boolean }
+  | { type: 'SET_DESCENDANTS_OPEN'; payload: { eid: string; opened: boolean } }
   | { type: 'TOGGLE_VISIBLE'; payload: string }
   | { type: 'START_EDIT'; payload: string }
   | { type: 'FINISH_EDIT'; payload: { eid: string; name: string; link?: string } }
@@ -93,6 +94,25 @@ const planReducer = (state: PlanState, action: Action): PlanState => {
         }
       };
       setOpen(newPlan.root.children);
+      return { ...state, plan: newPlan };
+    }
+
+    case 'SET_DESCENDANTS_OPEN': {
+      const newPlan = clonePlan(state.plan);
+      const row = findRowInTree(newPlan.root.children, action.payload.eid);
+      if (!row) return state;
+      const setOpenDeep = (rows: PlanRow[]) => {
+        for (const child of rows) {
+          child.opened = action.payload.opened;
+          if (child.children?.length) {
+            setOpenDeep(child.children);
+          }
+        }
+      };
+      row.opened = action.payload.opened;
+      if (row.children?.length) {
+        setOpenDeep(row.children);
+      }
       return { ...state, plan: newPlan };
     }
 
@@ -243,7 +263,7 @@ export const PlanProvider = ({ children, planId, ownerId }: { children?: ReactNo
   const { user, userProfile } = useAuth();
 
   const resolvedOwnerId = ownerId || user?.uid;
-  const resolvedPlanId = planId || userProfile?.currentPlanId || undefined;
+  const resolvedPlanId = userProfile?.currentPlanId || planId || undefined;
 
   useEffect(() => {
     setActivePlanId(resolvedPlanId);

@@ -32,7 +32,7 @@ const PlanSwitcher: React.FC = () => {
 
   useEffect(() => {
     void loadPlans();
-  }, [user?.uid]);
+  }, [user?.uid, userProfile?.currentPlanId]);
 
   if (!user?.uid) return null;
 

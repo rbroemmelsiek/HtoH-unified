@@ -36,6 +36,12 @@ export const PlanWidget: React.FC<PlanWidgetProps> = ({
   const planAppPort =
     (typeof process !== "undefined" ? process.env?.NEXT_PUBLIC_PLAN_APP_PORT : undefined) ??
     "5174";
+  const configuredDataSource =
+    (typeof process !== "undefined" ? process.env?.NEXT_PUBLIC_PLAN_DATASOURCE : undefined)?.toLowerCase();
+  const hasFirebaseConfig =
+    Boolean((typeof process !== "undefined" ? process.env?.NEXT_PUBLIC_FIREBASE_API_KEY : undefined)) &&
+    Boolean((typeof process !== "undefined" ? process.env?.NEXT_PUBLIC_FIREBASE_PROJECT_ID : undefined));
+  const effectiveDataSource = configuredDataSource ?? (hasFirebaseConfig ? 'firebase' : 'local');
   // Use Vue wrapper instead of iframe
   // This provides better integration and shared state
 
@@ -110,10 +116,10 @@ export const PlanWidget: React.FC<PlanWidgetProps> = ({
 
       {/* Footer Status */}
       <div className="px-4 py-2 bg-gray-50 border-t border-gray-200 text-xs text-gray-500 flex items-center justify-between">
-        <span>Real-time sync via Firebase</span>
+        <span>{effectiveDataSource === 'firebase' ? 'Real-time sync via Firebase' : 'Saved locally in browser storage'}</span>
         <span className="flex items-center gap-1">
-          <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-          Connected
+          <span className={`w-2 h-2 rounded-full ${effectiveDataSource === 'firebase' ? 'bg-green-500 animate-pulse' : 'bg-amber-500'}`}></span>
+          {effectiveDataSource === 'firebase' ? 'Connected' : 'Local mode'}
         </span>
       </div>
     </div>

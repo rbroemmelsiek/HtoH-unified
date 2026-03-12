@@ -1,5 +1,5 @@
 
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef } from 'react';
 import { usePlan } from '../context/PlanContext';
 import { hasTaskDescendant, findRowInTree } from '../utils/planHelpers';
 import { PlanRow } from '../types';
@@ -18,84 +18,69 @@ const ProgressNav: React.FC = () => {
   const navContainerRef = useRef<HTMLDivElement>(null);
   const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
-  const [isCompact, setIsCompact] = useState(false);
-
   const navItems = state.plan.root.children.filter(
     (panel) => panel.type === 'panel' && hasTaskDescendant(panel)
   );
 
-  useEffect(() => {
-    const updateCompactMode = () => {
-      const container = navContainerRef.current;
-      if (!container) return;
-      const availableWidth = container.clientWidth;
-      // Lower threshold so nav reliably returns to arrow mode as pane widens.
-      const minSegmentWidth = 132;
-      const requiredWidth = navItems.length * minSegmentWidth;
-      setIsCompact(requiredWidth > availableWidth);
-    };
-
-    updateCompactMode();
-
-    const container = navContainerRef.current;
-    let observer: ResizeObserver | null = null;
-    if (container && typeof ResizeObserver !== 'undefined') {
-      observer = new ResizeObserver(updateCompactMode);
-      observer.observe(container);
-    }
-    window.addEventListener('resize', updateCompactMode);
-
-    return () => {
-      if (observer) observer.disconnect();
-      window.removeEventListener('resize', updateCompactMode);
-    };
-  }, [navItems.length]);
-
   if (navItems.length === 0) return null;
 
   const getScrollContainer = () => {
-    // PlanWidget provides the scroll container when embedded
-    const el = document.querySelector('[data-plan-scroll-container="plan-widget"]') as HTMLElement | null;
-    return el || null;
+    // Prefer the scroller that actually contains this nav instance.
+    const navEl = navContainerRef.current;
+    if (navEl) {
+      const scoped = navEl.closest('[data-plan-scroll-container="plan-widget"]') as HTMLElement | null;
+      if (scoped) return scoped;
+    }
+    // Fallback for legacy layouts.
+    const first = document.querySelector('[data-plan-scroll-container="plan-widget"]') as HTMLElement | null;
+    return first || null;
   };
 
-  const scrollToPanel = (eid: string, index: number) => {
+  const scrollToPanel = (eid: string) => {
     const scroller = getScrollContainer();
-
-    // Special case for the first panel: scroll to top
-    if (index === 0) {
-      if (scroller) {
-        __agentLog('H1','ProgressNav.tsx:scrollTop','scroll to top (scroller)',{scrollTop: scroller.scrollTop});
-        scroller.scrollTo({ top: 0, behavior: 'smooth' });
-      } else {
-        __agentLog('H1','ProgressNav.tsx:scrollTop','scroll to top (window)',{});
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+    const escapeId = (value: string) => {
+      try {
+        return (window as any).CSS?.escape ? (window as any).CSS.escape(value) : value.replace(/"/g, '\\"');
+      } catch {
+        return value;
       }
-      return;
-    }
-
-    const element = document.getElementById(eid);
+    };
+    const scopedElement = scroller?.querySelector(`#${escapeId(eid)}`) as HTMLElement | null;
+    const element = scopedElement || document.getElementById(eid);
     if (!element) {
       __agentLog('H1','ProgressNav.tsx:scrollToPanel','target element missing',{eid});
       return;
     }
 
     const navHeight = navContainerRef.current?.getBoundingClientRect().height || 55;
+    const desiredGap = 10;
 
     if (scroller) {
-      const scrollerRect = scroller.getBoundingClientRect();
-      const elementRect = element.getBoundingClientRect();
-      const offsetWithinScroller = (elementRect.top - scrollerRect.top) + scroller.scrollTop;
-      const top = Math.max(0, offsetWithinScroller - navHeight - 12);
-      __agentLog('H1','ProgressNav.tsx:scrollToPanel','scroll within scroller',{eid,index,navHeight,scrollerScrollTop: scroller.scrollTop,targetTop: top});
-      scroller.scrollTo({ top, behavior: 'smooth' });
+      // Compute panel offset relative to the scroll container content for deterministic alignment.
+      let offset = 0;
+      let current: HTMLElement | null = element as HTMLElement;
+      while (current && current !== scroller) {
+        offset += current.offsetTop;
+        current = current.offsetParent as HTMLElement | null;
+      }
+      const target = Math.max(0, offset - navHeight - desiredGap);
+      __agentLog('H1','ProgressNav.tsx:scrollToPanel','scroll within scroller',{eid,navHeight,scrollerScrollTop: scroller.scrollTop,targetTop: target,offset});
+      scroller.scrollTo({ top: Math.round(target), behavior: 'smooth' });
       return;
     }
 
     const elementPosition = element.getBoundingClientRect().top + window.pageYOffset;
-    const offsetPosition = elementPosition - navHeight - 12;
-    __agentLog('H1','ProgressNav.tsx:scrollToPanel','scroll within window',{eid,index,navHeight,targetTop: offsetPosition});
-    window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
+    const targetTop = Math.max(0, elementPosition - navHeight - desiredGap);
+    __agentLog('H1','ProgressNav.tsx:scrollToPanel','scroll within window',{eid,navHeight,targetTop});
+    window.scrollTo({ top: targetTop, behavior: 'smooth' });
+  };
+
+  const areAllDescendantsOpen = (rows: PlanRow[]): boolean => {
+    for (const child of rows) {
+      if (!child.opened) return false;
+      if (child.children?.length && !areAllDescendantsOpen(child.children)) return false;
+    }
+    return true;
   };
 
   const handleNavClick = (eid: string, index: number) => {
@@ -109,15 +94,12 @@ const ProgressNav: React.FC = () => {
     clickTimerRef.current = setTimeout(() => {
       const panel = findRowInTree(state.plan.root.children, eid);
       if (!panel) return;
-      
-      // Fixed Toggle logic: Reliable single click open/close
-      if (!panel.opened) {
-          dispatch({ type: 'TOGGLE_OPEN', payload: eid });
-          // Delay scroll until toggle re-render starts
-          setTimeout(() => scrollToPanel(eid, index), 50);
-      } else {
-          dispatch({ type: 'TOGGLE_OPEN', payload: eid });
-      }
+
+      // Segment single-click toggles the entire descendant tree.
+      const shouldOpen = !(panel.opened && areAllDescendantsOpen(panel.children || []));
+      dispatch({ type: 'SET_DESCENDANTS_OPEN', payload: { eid, opened: shouldOpen } });
+      // One-pass aligned scroll after layout settles.
+      setTimeout(() => scrollToPanel(eid), 140);
       clickTimerRef.current = null;
     }, 250);
   };
@@ -127,14 +109,13 @@ const ProgressNav: React.FC = () => {
         clearTimeout(clickTimerRef.current);
         clickTimerRef.current = null;
       }
-      
-      const openCount = navItems.filter(p => p.opened).length;
-      const shouldOpen = openCount < (navItems.length / 2 + 0.5);
-      
-      dispatch({ type: 'TOGGLE_ALL', payload: shouldOpen }); 
-      
-      // Always scroll to the double-clicked item regardless of open/close
-      setTimeout(() => scrollToPanel(eid, index), 100);
+
+      // Double-click toggles the full plan tree (all panels + all descendants).
+      const anyClosed = navItems.some((panel) => !panel.opened || !areAllDescendantsOpen(panel.children || []));
+      dispatch({ type: 'TOGGLE_ALL', payload: anyClosed });
+
+      // Keep focus context near the clicked segment's panel.
+      setTimeout(() => scrollToPanel(eid), 140);
   };
 
   const handleMouseEnter = (eid: string) => {
@@ -165,13 +146,6 @@ const ProgressNav: React.FC = () => {
   };
 
   const getWrapperStyle = (index: number) => {
-    if (isCompact) {
-        return {
-            zIndex: (navItems.length - index) + 10,
-            borderRight: index < navItems.length - 1 ? '1px solid rgba(255,255,255,0.3)' : 'none',
-            marginRight: index < navItems.length - 1 ? '4px' : '0px',
-        };
-    }
     const arrowSize = '1.2rem';
     const gapSize = '4px';
     const style: React.CSSProperties = { zIndex: (navItems.length - index) + 10 };
@@ -231,22 +205,16 @@ const ProgressNav: React.FC = () => {
     }
 
     let clipPath, paddingLeft = '0.5rem', paddingRight = '0.5rem';
-    if (isCompact) {
-        clipPath = 'none'; 
-        paddingLeft = '0.6rem';
-        paddingRight = '0.6rem';
+    const isLast = (index === navItems.length - 1);
+    paddingLeft = index === 0 ? '0.75rem' : `calc(${arrowSize} + 0.5rem)`;
+    paddingRight = isLast ? '1.25rem' : arrowSize; 
+    
+    if (index === 0) {
+      clipPath = `polygon(0% 0%, calc(100% - ${arrowSize}) 0%, 100% 50%, calc(100% - ${arrowSize}) 100%, 0% 100%)`;
+    } else if (isLast) {
+      clipPath = `polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, ${arrowSize} 50%)`;
     } else {
-        const isLast = (index === navItems.length - 1);
-        paddingLeft = index === 0 ? '0.75rem' : `calc(${arrowSize} + 0.5rem)`;
-        paddingRight = isLast ? '1.25rem' : arrowSize; 
-        
-        if (index === 0) {
-          clipPath = `polygon(0% 0%, calc(100% - ${arrowSize}) 0%, 100% 50%, calc(100% - ${arrowSize}) 100%, 0% 100%)`;
-        } else if (isLast) {
-          clipPath = `polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, ${arrowSize} 50%)`;
-        } else {
-          clipPath = `polygon(0% 0%, calc(100% - ${arrowSize}) 0%, 100% 50%, calc(100% - ${arrowSize}) 100%, 0% 100%, ${arrowSize} 50%)`;
-        }
+      clipPath = `polygon(0% 0%, calc(100% - ${arrowSize}) 0%, 100% 50%, calc(100% - ${arrowSize}) 100%, 0% 100%, ${arrowSize} 50%)`;
     }
 
     return { background: backgroundStr, clipPath: clipPath, paddingRight: paddingRight, paddingLeft: paddingLeft };
@@ -255,9 +223,9 @@ const ProgressNav: React.FC = () => {
   return (
     <div 
         ref={navContainerRef}
-        className="sticky top-0 z-40 w-full max-w-[100vw] overflow-x-hidden bg-black border-t-[3px] border-[#04cc08] shadow-[0_4px_20px_rgba(0,0,0,0.5)] mb-6 transform-gpu"
+        className="sticky top-0 z-40 w-full max-w-[100vw] overflow-x-auto bg-black border-t-[3px] border-[#04cc08] shadow-[0_4px_20px_rgba(0,0,0,0.5)] mb-6 transform-gpu"
     >
-      <div className="w-full">
+      <div className="w-max min-w-full">
         <div className="flex items-stretch h-12 px-2 overflow-visible py-1">
           {navItems.map((panel, index) => {
             const stats = getPanelStats(panel);
@@ -267,7 +235,7 @@ const ProgressNav: React.FC = () => {
             return (
               <div 
                 key={panel.eid}
-                className="relative flex-grow flex min-w-0 group transition-none"
+                className="relative flex flex-1 min-w-[150px] group transition-none"
                 style={getWrapperStyle(index)}
               >
                 <button
@@ -278,11 +246,11 @@ const ProgressNav: React.FC = () => {
                   className="w-full h-full flex items-center justify-start font-medium text-white focus:outline-none touch-action-manipulation"
                   style={{
                       ...getButtonStyle(index, stats, isComplete, isHovered),
-                      fontSize: isCompact ? '0.8em' : '1.0em'
+                      fontSize: '1.0em'
                   }}
                 >
-                  <div className={`flex items-center w-full z-10 ${isCompact ? 'justify-center' : 'px-2'}`}>
-                      {!isCompact && <CaretRightFillIcon className="flex-shrink-0 w-3 h-3 mr-1 text-white opacity-90 drop-shadow-md" />}
+                  <div className="flex items-center w-full z-10 px-2">
+                      <CaretRightFillIcon className="flex-shrink-0 w-3 h-3 mr-1 text-white opacity-90 drop-shadow-md" />
                       <span className="truncate drop-shadow-md text-left flex-grow text-shadow-sm">
                         {panel.name || "PANEL"}
                       </span>
@@ -292,7 +260,7 @@ const ProgressNav: React.FC = () => {
                 {isComplete && (
                    <div 
                      className="absolute z-50 pointer-events-none"
-                     style={{ right: isCompact ? '-4px' : '1.75rem', top: '-2px' }}
+                     style={{ right: '1.75rem', top: '-2px' }}
                    >
                       <div className="w-[1.15rem] h-[1.15rem] bg-[#04cc08] rounded-full border-2 border-white flex items-center justify-center shadow-lg">
                         <BoldCheckIcon className="w-[0.65rem] h-[0.65rem] text-white filter drop-shadow-sm" />

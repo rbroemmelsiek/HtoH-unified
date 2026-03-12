@@ -3,21 +3,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Star, Plus, Phone, Mail, User, Briefcase, Search, Check, Users, HardHat, Shield, Maximize2, Minimize2, Table, LayoutGrid, ArrowLeft, ArrowRight, X, Edit3, Filter, ChevronRight, SlidersHorizontal, GalleryHorizontalEnd } from 'lucide-react';
 import { FormsWidget } from './FormsWidget';
 import { FieldDef, TableDefinition } from '../types';
-
-interface Contact {
-  id: string;
-  name: string;
-  role: string;
-  company?: string;
-  phone: string;
-  email: string;
-  category: 'party' | 'provider' | 'vendor';
-  isFavorite: boolean;
-  imageUrl: string;
-  address?: string;
-  notes?: string;
-  [key: string]: any;
-}
+import { useAuth } from '../context/AuthContext';
+import planGateway from '../services/planGateway/planGateway';
+import {
+  ContactRecord,
+  getContactDirectory,
+  saveContactDirectory,
+} from '../services/contactDirectory';
 
 interface ContactsWidgetProps {
   onExpand?: (selectedId?: string) => void;
@@ -50,17 +42,8 @@ const DEFAULT_CONTACTS_SCHEMA: FieldDef[] = [
   { name: 'imageUrl', label: 'Profile Photo', type: 'Image' },
   { name: 'notes', label: 'Private Notes', type: 'LongText' },
   { name: 'parentId', label: 'Parent ID', type: 'Ref', hidden: true },
-];
-
-const MOCK_CONTACTS: Contact[] = [
-  { id: '1', name: 'Alice Freeman', role: 'Buyer', phone: '(555) 123-4567', email: 'alice@example.com', category: 'party', isFavorite: true, imageUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=600&q=80', address: '123 Maple Dr, Springfield', notes: 'Pre-approved for $600k.' },
-  { id: '2', name: 'Bob Smith', role: 'Seller', phone: '(555) 987-6543', email: 'bob@example.com', category: 'party', isFavorite: false, imageUrl: 'https://images.unsplash.com/photo-1599566150163-29194dcaad36?auto=format&fit=crop&w=600&q=80', address: '456 Oak Ln, Springfield', notes: 'Motivated seller, moving out of state.' },
-  { id: '3', name: 'Sarah Jenkins', role: 'Listing Agent', company: 'Prime Realty', phone: '(555) 222-3333', email: 'sarah@primerealty.com', category: 'provider', isFavorite: true, imageUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=600&q=80', notes: 'Co-listing agent.' },
-  { id: '4', name: 'Mike Ross', role: 'Loan Officer', company: 'Quick Loans', phone: '(555) 444-5555', email: 'mike@quickloans.com', category: 'provider', isFavorite: false, imageUrl: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=600&q=80', notes: 'Fast closer.' },
-  { id: '5', name: 'Elena Rodriguez', role: 'Escrow Officer', company: 'Secure Title', phone: '(555) 666-7777', email: 'elena@securetitle.com', category: 'provider', isFavorite: true, imageUrl: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=600&q=80' },
-  { id: '6', name: 'Tom Wilson', role: 'Home Inspector', company: 'CheckIt Inspections', phone: '(555) 888-9999', email: 'tom@checkit.com', category: 'vendor', isFavorite: false, imageUrl: 'https://images.unsplash.com/photo-1521119989659-a83eee488058?auto=format&fit=crop&w=600&q=80' },
-  { id: '7', name: 'Fix-It Felix', role: 'General Contractor', company: 'Felix Construction', phone: '(555) 000-1111', email: 'felix@build.com', category: 'vendor', isFavorite: true, imageUrl: 'https://images.unsplash.com/photo-1504593811423-6dd665756598?auto=format&fit=crop&w=600&q=80' },
-  { id: '8', name: 'Green Thumb Landscaping', role: 'Landscaper', company: 'Green Thumb', phone: '(555) 222-1212', email: 'info@greenthumb.com', category: 'vendor', isFavorite: false, imageUrl: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&w=600&q=80' }
+  { name: 'linkedPlanId', label: 'Linked Plan ID', type: 'Text' },
+  { name: 'linkedOwnerId', label: 'Linked Owner ID', type: 'Text' },
 ];
 
 export const ContactsWidget: React.FC<ContactsWidgetProps> = ({
@@ -72,6 +55,7 @@ export const ContactsWidget: React.FC<ContactsWidgetProps> = ({
   onToggleFullScreen,
   isFullScreen
 }) => {
+  const { user, userProfile, setCurrentPlanId } = useAuth();
   const [activeTab, setActiveTab] = useState<'all' | 'party' | 'provider' | 'vendor'>('all');
   const [viewMode, setViewMode] = useState<'deck' | 'table' | 'carousel'>('carousel');
   const [searchQuery, setSearchQuery] = useState('');
@@ -83,7 +67,7 @@ export const ContactsWidget: React.FC<ContactsWidgetProps> = ({
   const [newFilterValue, setNewFilterValue] = useState('');
 
   // Data State
-  const [contacts, setContacts] = useState(MOCK_CONTACTS);
+  const [contacts, setContacts] = useState<ContactRecord[]>(() => getContactDirectory());
 
   // Selection / Editing State
   const [selectedContactId, setSelectedContactId] = useState<string | null>(initialSelectedId || null);
@@ -149,6 +133,10 @@ export const ContactsWidget: React.FC<ContactsWidgetProps> = ({
   const schema = tableDef?.schema || DEFAULT_CONTACTS_SCHEMA;
   const labelField = tableDef?.labelField || 'name';
 
+  useEffect(() => {
+    saveContactDirectory(contacts);
+  }, [contacts]);
+
   // Effect to sync initial selection
   useEffect(() => {
     if (initialSelectedId) {
@@ -168,7 +156,7 @@ export const ContactsWidget: React.FC<ContactsWidgetProps> = ({
     let matchesFilters = true;
     if (activeFilters.length > 0) {
       matchesFilters = activeFilters.every(f => {
-        const val = c[f.field as keyof Contact];
+        const val = c[f.field as keyof ContactRecord];
         if (val === undefined || val === null) return false;
         return String(val).toLowerCase().includes(f.value.toLowerCase());
       });
@@ -290,6 +278,48 @@ export const ContactsWidget: React.FC<ContactsWidgetProps> = ({
     setIsEditing(false);
   };
 
+  const resolveOwnerId = (contact: ContactRecord): string | undefined => {
+    if (contact.linkedOwnerId === 'self') return user?.uid;
+    return contact.linkedOwnerId || user?.uid;
+  };
+
+  const openContactPlan = (contact: ContactRecord, planId?: string | null) => {
+    const resolvedPlanId = planId || contact.linkedPlanId || userProfile?.currentPlanId;
+    const resolvedOwnerId = resolveOwnerId(contact);
+    window.dispatchEvent(new CustomEvent('open-contact-plan', {
+      detail: {
+        contactId: contact.id,
+        contactName: contact.name,
+        planId: resolvedPlanId,
+        ownerId: resolvedOwnerId,
+      },
+    }));
+  };
+
+  const createAndLinkPlan = async (contact: ContactRecord) => {
+    if (!user?.uid) return;
+    const newPlanId = await planGateway.createPlan(user.uid, `${contact.name} Service Plan`);
+    const next = contacts.map((c) =>
+      c.id === contact.id
+        ? {
+            ...c,
+            linkedPlanId: newPlanId,
+            linkedOwnerId: 'self',
+          }
+        : c
+    );
+    setContacts(next);
+    await setCurrentPlanId(newPlanId);
+    openContactPlan(
+      {
+        ...contact,
+        linkedPlanId: newPlanId,
+        linkedOwnerId: 'self',
+      },
+      newPlanId
+    );
+  };
+
   const addFilter = () => {
     if (selectedFilterField && newFilterValue) {
       setActiveFilters(prev => [...prev, { id: Date.now().toString(), field: selectedFilterField.name, label: selectedFilterField.label, value: newFilterValue }]);
@@ -406,6 +436,21 @@ export const ContactsWidget: React.FC<ContactsWidgetProps> = ({
               <div className="flex gap-3 mt-6">
                 <button className="flex-1 py-2.5 bg-[#141D84] text-white rounded-lg font-bold text-sm hover:bg-blue-900 flex items-center justify-center gap-2 shadow-md transition-transform active:scale-95"><Phone size={18} /> Call Mobile</button>
                 <button className="flex-1 py-2.5 border border-gray-200 text-gray-700 bg-white rounded-lg font-bold text-sm hover:bg-gray-50 flex items-center justify-center gap-2 shadow-sm transition-transform active:scale-95"><Mail size={18} /> Send Email</button>
+              </div>
+              <div className="flex gap-3 mt-3">
+                <button
+                  onClick={() => openContactPlan(selectedContact)}
+                  className="flex-1 py-2.5 bg-indigo-600 text-white rounded-lg font-bold text-sm hover:bg-indigo-700 shadow-sm transition-transform active:scale-95"
+                >
+                  Open Service Plan
+                </button>
+                <button
+                  onClick={() => void createAndLinkPlan(selectedContact)}
+                  className="flex-1 py-2.5 border border-indigo-200 text-indigo-700 bg-indigo-50 rounded-lg font-bold text-sm hover:bg-indigo-100 shadow-sm transition-transform active:scale-95"
+                  disabled={!user?.uid}
+                >
+                  Create + Link Plan
+                </button>
               </div>
 
               <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -626,6 +671,21 @@ export const ContactsWidget: React.FC<ContactsWidgetProps> = ({
         <div className="flex gap-3 mt-6">
           <button className="flex-1 py-2.5 bg-[#141D84] text-white rounded-lg font-bold text-sm hover:bg-blue-900 flex items-center justify-center gap-2 shadow-md transition-transform active:scale-95"><Phone size={18} /> Call Mobile</button>
           <button className="flex-1 py-2.5 border border-gray-200 text-gray-700 bg-white rounded-lg font-bold text-sm hover:bg-gray-50 flex items-center justify-center gap-2 shadow-sm transition-transform active:scale-95"><Mail size={18} /> Send Email</button>
+        </div>
+        <div className="flex gap-3 mt-3">
+          <button
+            onClick={() => openContactPlan(contact)}
+            className="flex-1 py-2.5 bg-indigo-600 text-white rounded-lg font-bold text-sm hover:bg-indigo-700 shadow-sm transition-transform active:scale-95"
+          >
+            Open Service Plan
+          </button>
+          <button
+            onClick={() => void createAndLinkPlan(contact)}
+            className="flex-1 py-2.5 border border-indigo-200 text-indigo-700 bg-indigo-50 rounded-lg font-bold text-sm hover:bg-indigo-100 shadow-sm transition-transform active:scale-95"
+            disabled={!user?.uid}
+          >
+            Create + Link Plan
+          </button>
         </div>
 
         <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6 pb-8">

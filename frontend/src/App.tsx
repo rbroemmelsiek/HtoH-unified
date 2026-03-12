@@ -12,6 +12,11 @@ import { Send, Menu, Loader2, Mic, Plus, Calendar, MapPin, Play, BarChart3, File
 import AcademyApp from './components/ai-academy-v1/App';
 import { AuthLoginPanel } from './components/AuthLoginPanel';
 import { useAuth } from './context/AuthContext';
+import {
+  ContactRecord,
+  findContactsByNameSmart,
+  getContactDirectory,
+} from './services/contactDirectory';
 
 // #region agent log
 const __agentLog = (hypothesisId: string, location: string, message: string, data: any) => {
@@ -38,6 +43,8 @@ const DEFAULT_CONTACTS_DEF: TableDefinition = {
     { name: 'address', label: 'Mailing Address', type: 'Address' },
     { name: 'imageUrl', label: 'Profile Photo', type: 'Image' },
     { name: 'notes', label: 'Private Notes', type: 'LongText' },
+    { name: 'linkedPlanId', label: 'Linked Plan ID', type: 'Text' },
+    { name: 'linkedOwnerId', label: 'Linked Owner ID', type: 'Text' },
   ],
   keyField: 'id',
   labelField: 'name'
@@ -47,7 +54,7 @@ type ToolsMenuMode = 'main' | 'services' | 'transactional' | 'vendor';
 type AppView = 'dashboard' | 'academy' | 'help';
 
 function App() {
-  const { user, userProfile } = useAuth();
+  const { user, userProfile, setCurrentPlanId } = useAuth();
   // Navigation state - Dashboard or Academy
   const [currentView, setCurrentView] = useState<AppView>('dashboard');
   // Load agents from localStorage or fallback to INITIAL_AGENTS
@@ -162,17 +169,37 @@ function App() {
       if (expandedWidget !== 'plan') {
         setExpandedWidget('plan');
         setExpandedWidgetData({
-          planId: userProfile?.currentPlanId,
           ownerId: user?.uid
         });
       }
     };
 
+    const handleOpenContactPlan = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const detail = customEvent.detail ?? {};
+      handleExpandWidget('plan', {
+        planId: detail.planId,
+        ownerId: detail.ownerId,
+      });
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          role: 'model',
+          text: `Opening ${detail.contactName ?? 'contact'} Service Plan. [[WIDGET:Plan]]`,
+          timestamp: new Date(),
+          agentId: currentAgent.id,
+        }
+      ]);
+    };
+
     window.addEventListener('plan-nav-click', handlePlanNavClick);
+    window.addEventListener('open-contact-plan', handleOpenContactPlan);
     return () => {
       window.removeEventListener('plan-nav-click', handlePlanNavClick);
+      window.removeEventListener('open-contact-plan', handleOpenContactPlan);
     };
-  }, [expandedWidget, user?.uid, userProfile?.currentPlanId]);
+  }, [currentAgent.id, expandedWidget, user?.uid, userProfile?.currentPlanId]);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -424,7 +451,7 @@ function App() {
   const handleExpandWidget = (type: ExpandedWidgetType, data?: any) => {
     const nextData = type === 'plan'
       ? {
-          planId: data?.planId ?? userProfile?.currentPlanId,
+          planId: data?.planId,
           ownerId: data?.ownerId ?? user?.uid,
         }
       : data;
@@ -445,9 +472,102 @@ function App() {
     }, 100);
   };
 
+  const extractContactNameFromPlanCommand = (input: string): string | null => {
+    const normalized = input.trim();
+    const patterns = [
+      /open\s+(.+?)['’]s\s+service\s+plan/i,
+      /open\s+(.+?)\s+service\s+plan/i,
+      /open\s+service\s+plan\s+for\s+(.+)/i,
+      /show\s+(.+?)['’]s\s+service\s+plan/i,
+      /show\s+(.+?)\s+service\s+plan/i,
+      /summon\s+(.+?)['’]s\s+service\s+plan/i,
+      /summon\s+(.+?)\s+service\s+plan/i,
+      /open\s+plan\s+for\s+(.+)/i,
+      /show\s+plan\s+for\s+(.+)/i
+    ];
+    for (const pattern of patterns) {
+      const match = normalized.match(pattern);
+      if (match?.[1]) return match[1].trim();
+    }
+    return null;
+  };
+
+  const openPlanFromContact = (contact: ContactRecord) => {
+    const ownerId = contact.linkedOwnerId === 'self' ? user?.uid : (contact.linkedOwnerId || user?.uid);
+    const planId = contact.linkedPlanId || userProfile?.currentPlanId;
+    if (planId) {
+      void setCurrentPlanId(planId);
+    }
+    handleExpandWidget('plan', { planId, ownerId });
+  };
+
   // Handlers
   const handleSendMessage = async (text: string = inputValue) => {
     if (!text.trim()) return;
+
+    const isPlanIntent = /\b(open|show|summon)\b.*\b(service\s+plan|plan)\b/i.test(text);
+    if (isPlanIntent) {
+      const userMsg: Message = {
+        id: Date.now().toString(),
+        role: 'user',
+        text: text,
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, userMsg]);
+      setInputValue('');
+
+      const requestedName = extractContactNameFromPlanCommand(text);
+      if (requestedName) {
+        const matches = findContactsByNameSmart(requestedName, getContactDirectory());
+        if (matches.length === 1) {
+          const matchedContact = matches[0];
+          openPlanFromContact(matchedContact);
+          const botMsg: Message = {
+            id: (Date.now() + 1).toString(),
+            role: 'model',
+            text: `Opening ${matchedContact.name}'s Service Plan now. [[WIDGET:Plan]]`,
+            timestamp: new Date(),
+            agentId: currentAgent.id
+          };
+          setMessages(prev => [...prev, botMsg]);
+          return;
+        }
+
+        if (matches.length > 1) {
+          const options = matches.slice(0, 3).map((m) => m.name).join(', ');
+          const botMsg: Message = {
+            id: (Date.now() + 1).toString(),
+            role: 'model',
+            text: `I found multiple matches for "${requestedName}": ${options}. Please say the full name.`,
+            timestamp: new Date(),
+            agentId: currentAgent.id
+          };
+          setMessages(prev => [...prev, botMsg]);
+          return;
+        }
+
+        const notFoundMsg: Message = {
+          id: (Date.now() + 1).toString(),
+          role: 'model',
+          text: `I couldn't find "${requestedName}" in Contacts Directory. Try opening Contacts first or say another full name.`,
+          timestamp: new Date(),
+          agentId: currentAgent.id
+        };
+        setMessages(prev => [...prev, notFoundMsg]);
+        return;
+      }
+
+      handleExpandWidget('plan', { planId: userProfile?.currentPlanId, ownerId: user?.uid });
+      const genericPlanMsg: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'model',
+        text: 'Opening your current Service Plan now. [[WIDGET:Plan]]',
+        timestamp: new Date(),
+        agentId: currentAgent.id
+      };
+      setMessages(prev => [...prev, genericPlanMsg]);
+      return;
+    }
 
     const newMessage: Message = {
       id: Date.now().toString(),
@@ -734,11 +854,17 @@ function App() {
         >
           {/* Top bar with logo, navigation, and menu */}
           <div className="px-4 md:px-6 py-1 flex items-center justify-between w-full">
-            <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => { window.location.href = "/iss-tracker"; }}
+              className="flex items-center gap-3 rounded-lg p-1 -m-1 transition-colors hover:bg-white/10"
+              title="Open ISS Tracker"
+              aria-label="Open ISS Tracker"
+            >
               <div className="bg-white/10 p-2 rounded-lg backdrop-blur-sm border border-white/20 shadow-sm">
                 <Home className="text-white" size={24} />
               </div>
-              <div>
+              <div className="text-left">
                 <h1 className="font-normal text-white text-2xl font-serif leading-tight tracking-wide">HomeToHome.Ai</h1>
                 <div className="flex items-center gap-2">
                   <span className={`w-2 h-2 rounded-full ${config.corpusFileName ? 'bg-emerald-400 animate-pulse' : 'bg-gray-400'}`}></span>
@@ -747,7 +873,7 @@ function App() {
                   </span>
                 </div>
               </div>
-            </div>
+            </button>
             
             <div className="flex items-center gap-2">
               <button

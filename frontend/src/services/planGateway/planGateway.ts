@@ -20,9 +20,10 @@ function hasFirebaseWebConfig(): boolean {
 async function getGateway() {
   if (gateway) return gateway;
 
+  const configuredDataSource = (typeof process !== "undefined" ? process.env?.NEXT_PUBLIC_PLAN_DATASOURCE : undefined);
   const dataSource = (
-    (typeof process !== "undefined" ? process.env?.NEXT_PUBLIC_PLAN_DATASOURCE : undefined) ??
-    "local"
+    configuredDataSource ??
+    (hasFirebaseWebConfig() ? "firebase" : "local")
   ).toLowerCase();
 
   if (dataSource === 'firebase') {

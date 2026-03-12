@@ -85,6 +85,10 @@ export default class FirebasePlanGateway implements PlanGateway {
 
       if (snap.exists()) {
         const data = snap.data() as any;
+        if (ownerId && !data.ownerId) {
+          // One-time legacy migration: claim owner on old singleton plans.
+          await setDoc(ref, { ownerId, updatedAt: serverTimestamp() }, { merge: true });
+        }
         return {
           planId: snap.id,
           name: data.name || 'Service Plan',
