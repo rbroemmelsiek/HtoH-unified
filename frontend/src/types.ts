@@ -27,6 +27,9 @@ export interface FieldDef {
   label: string;
   type: MesopType;
   options?: string[];
+  showIf?: string;
+  optionsSourceField?: string;
+  optionsByValue?: Record<string, string[]>;
   readOnly?: boolean;
   placeholder?: string;
   defaultValue?: any;

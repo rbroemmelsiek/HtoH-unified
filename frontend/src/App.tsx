@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Message, AppConfig, Suggestion, INITIAL_AGENTS, Agent, ExpandedWidgetType, TargetTool, TableDefinition, TRANSACTIONAL_SERVICES, VENDOR_SERVICES } from './types';
+import { Message, AppConfig, Suggestion, INITIAL_AGENTS, Agent, ExpandedWidgetType, TargetTool, TRANSACTIONAL_SERVICES, VENDOR_SERVICES } from './types';
 import { sendMessageToGemini, generateSuggestions } from './services/geminiService';
 import { Sidebar } from './components/Sidebar';
 import { PromptSlider } from './components/PromptSlider';
@@ -17,6 +17,7 @@ import {
   findContactsByNameSmart,
   getContactDirectory,
 } from './services/contactDirectory';
+import { CONTACTS_DIRECTORY_TABLE_DEF } from './services/contactDirectorySchema';
 
 // #region agent log
 const __agentLog = (hypothesisId: string, location: string, message: string, data: any) => {
@@ -25,30 +26,6 @@ const __agentLog = (hypothesisId: string, location: string, message: string, dat
   } catch (_) {}
 };
 // #endregion
-
-// Default Schema for Contacts to start with
-const DEFAULT_CONTACTS_DEF: TableDefinition = {
-  id: 'contacts',
-  name: 'Contacts Directory',
-  schema: [
-    { name: 'name', label: 'Full Name', type: 'Name' },
-    { name: 'role', label: 'Role / Title', type: 'Text' },
-    { name: 'company', label: 'Company', type: 'Text' },
-    { name: 'category', label: 'Category', type: 'Enum', options: ['party', 'provider', 'vendor'] },
-    { name: 'isFavorite', label: 'Favorite?', type: 'Yes/No' },
-    { label: 'Contact Info', name: 'contact_header', type: 'SectionHeader' },
-    { name: 'phone', label: 'Phone Number', type: 'Phone' },
-    { name: 'email', label: 'Email Address', type: 'Email' },
-    { label: 'Details', name: 'details_break', type: 'PageBreak' },
-    { name: 'address', label: 'Mailing Address', type: 'Address' },
-    { name: 'imageUrl', label: 'Profile Photo', type: 'Image' },
-    { name: 'notes', label: 'Private Notes', type: 'LongText' },
-    { name: 'linkedPlanId', label: 'Linked Plan ID', type: 'Text' },
-    { name: 'linkedOwnerId', label: 'Linked Owner ID', type: 'Text' },
-  ],
-  keyField: 'id',
-  labelField: 'name'
-};
 
 type ToolsMenuMode = 'main' | 'services' | 'transactional' | 'vendor';
 type AppView = 'dashboard' | 'academy' | 'help';
@@ -134,7 +111,7 @@ function App() {
   const [config, setConfig] = useState<AppConfig>({
     corpusData: '',
     corpusFileName: null,
-    tableDefinitions: [DEFAULT_CONTACTS_DEF],
+    tableDefinitions: [CONTACTS_DIRECTORY_TABLE_DEF],
     maxFileSizeMB: 5 // Default 5MB
   });
 

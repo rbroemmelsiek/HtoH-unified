@@ -837,6 +837,42 @@ export const FormsWidget: React.FC<FormsWidgetProps> = ({
     if (onUpdateFormData) onUpdateFormData({ ...formData, [field]: val });
   };
 
+  const evaluateShowIf = (showIf: string | undefined): boolean => {
+    if (!showIf) return true;
+    try {
+      const evaluator = new Function('data', `return Boolean(${showIf});`);
+      return Boolean(evaluator(genericFormData || {}));
+    } catch (error) {
+      console.warn('[FormsWidget] showIf evaluation failed:', showIf, error);
+      return true;
+    }
+  };
+
+  const resolveDynamicOptions = (field: FieldDef): string[] => {
+    if (!field.optionsSourceField || !field.optionsByValue) {
+      return field.options || [];
+    }
+
+    const selectedValue = genericFormData?.[field.optionsSourceField];
+    if (!selectedValue) return [];
+
+    const selectedText = String(selectedValue).trim().toLowerCase();
+    const entries = Object.entries(field.optionsByValue);
+
+    const exact = entries.find(([key]) => key.toLowerCase() === selectedText);
+    if (exact) return exact[1];
+
+    const fuzzy = entries.find(([key]) => {
+      const normalizedKey = key.toLowerCase();
+      return normalizedKey.includes(selectedText) || selectedText.includes(normalizedKey);
+    });
+    if (fuzzy) return fuzzy[1];
+
+    return [];
+  };
+
+  const getVisibleFields = (fields: FieldDef[]) => fields.filter((field) => !field.hidden && evaluateShowIf(field.showIf));
+
   const toggleSection = (id: number) => {
     setExpandedSections(prev => ({ ...prev, [id]: !prev[id] }));
   };
@@ -910,7 +946,7 @@ export const FormsWidget: React.FC<FormsWidgetProps> = ({
     const stepData = steps.find(s => s.id === currentStep);
     if (!stepData) return null;
 
-    const fieldsToShow = getSortedFields(stepData.fields, currentStep);
+    const fieldsToShow = getVisibleFields(getSortedFields(stepData.fields, currentStep));
 
     return (
       <div className="pt-2 animate-fade-in">
@@ -924,20 +960,20 @@ export const FormsWidget: React.FC<FormsWidgetProps> = ({
             const textFull = field.type === 'Text' && isLongLabel;
             const isFullWidth = alwaysFull || textFull || isLongLabel;
 
-            return !field.hidden && (
+            return (
               <div key={field.name} className={isFullWidth ? "col-span-1 md:col-span-2" : "col-span-1"}>
                 <MesopField
                   type={field.type}
                   label={field.label}
                   value={genericFormData[field.name]}
                   onChange={(v) => updateField(field.name, v)}
-                  options={field.options}
+                  options={resolveDynamicOptions(field)}
                   readOnly={readOnly || field.readOnly}
                   placeholder={field.placeholder}
                   description={field.description}
                 />
               </div>
-            )
+            );
           })}
         </div>
       </div>
@@ -948,7 +984,7 @@ export const FormsWidget: React.FC<FormsWidgetProps> = ({
     return (
       <div className="space-y-6 pt-2 pb-20">
         {steps.map(step => {
-          const sortedFields = getSortedFields(step.fields, step.id);
+          const sortedFields = getVisibleFields(getSortedFields(step.fields, step.id));
           const isExpanded = expandedSections[step.id];
 
           return (
@@ -971,14 +1007,14 @@ export const FormsWidget: React.FC<FormsWidgetProps> = ({
                       const alwaysFull = ['SectionHeader', 'LongText', 'File', 'Image', 'Signature', 'Drawing'].includes(field.type);
                       const textFull = field.type === 'Text' && isLongLabel;
                       const isFullWidth = alwaysFull || textFull || isLongLabel;
-                      return !field.hidden && (
+                      return (
                         <div key={field.name} className={isFullWidth ? "col-span-1 md:col-span-2" : "col-span-1"}>
                           <MesopField
                             type={field.type}
                             label={field.label}
                             value={genericFormData[field.name]}
                             onChange={(v) => updateField(field.name, v)}
-                            options={field.options}
+                            options={resolveDynamicOptions(field)}
                             readOnly={readOnly || field.readOnly}
                             placeholder={field.placeholder}
                             description={field.description}

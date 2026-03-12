@@ -274,7 +274,23 @@ export const ContactsWidget: React.FC<ContactsWidgetProps> = ({
   };
 
   const handleSaveContact = (updatedData: any) => {
-    setContacts(prev => prev.map(c => c.id === updatedData.id ? updatedData : c));
+    const nextRecord: ContactRecord = { ...updatedData };
+
+    const first = String(updatedData.FirstName || '').trim();
+    const last = String(updatedData.LastName || '').trim();
+    const combinedName = `${first} ${last}`.trim();
+    if (combinedName) {
+      nextRecord.name = combinedName;
+    }
+
+    if (updatedData.Mobile) nextRecord.phone = String(updatedData.Mobile);
+    if (updatedData.Email) nextRecord.email = String(updatedData.Email);
+    if (updatedData.CompanyName) nextRecord.company = String(updatedData.CompanyName);
+    if (updatedData.Photo) nextRecord.imageUrl = String(updatedData.Photo);
+    if (updatedData.HomeAddress) nextRecord.address = String(updatedData.HomeAddress);
+    if (updatedData.AdditionalInfo) nextRecord.notes = String(updatedData.AdditionalInfo);
+
+    setContacts(prev => prev.map(c => c.id === nextRecord.id ? nextRecord : c));
     setIsEditing(false);
   };
 
