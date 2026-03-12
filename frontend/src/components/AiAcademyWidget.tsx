@@ -2,17 +2,8 @@ import React from 'react';
 import { X, Maximize2, Minimize2 } from 'lucide-react';
 import AcademyApp from './ai-academy-v1/App';
 
-// #region agent log
-const __agentLog = (hypothesisId: string, location: string, message: string, data: any) => {
-  try {
-    fetch('http://127.0.0.1:7243/ingest/4469576f-e0f7-44d6-988c-2bfc5cb48a06',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId,location,message,data,timestamp:Date.now()})}).catch(()=>{});
-  } catch (_) {}
-};
-// #endregion
-
 
 export function AiAcademyWidget({ onClose, onToggleFullScreen, isFullScreen, agentId, agentName }: { onClose: () => void; onToggleFullScreen?: () => void; isFullScreen?: boolean; agentId?: string; agentName?: string }) {
-  __agentLog('H5','AiAcademyWidget.tsx:render','render academy widget',{isFullScreen: !!isFullScreen, agentId, agentName});
   return (
     <div className="flex flex-col h-full bg-[#0a0a0f]">
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-gradient-to-r from-[#5972d0] to-[#141D84] flex-shrink-0">

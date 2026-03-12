@@ -12,9 +12,26 @@ interface AuthLoginPanelProps {
 }
 
 export function AuthLoginPanel({ onClose, showHost = true, className = "" }: AuthLoginPanelProps) {
-  const { user, loading, isConfigured, signInWithGoogle, signInWithRedirectFallback, resetAuthState, signOut, tier } = useAuth();
+  const {
+    user,
+    loading,
+    isConfigured,
+    signInWithGoogle,
+    signInWithRedirectFallback,
+    resetAuthState,
+    signOut,
+    tier,
+    authError,
+    clearAuthError,
+  } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  React.useEffect(() => {
+    if (user) {
+      onClose?.();
+    }
+  }, [user, onClose]);
 
   /** Turn Firebase auth errors into a user-friendly message (and optional fix). */
   const getAuthErrorMessage = (e: unknown): string => {
@@ -30,19 +47,21 @@ export function AuthLoginPanel({ onClose, showHost = true, className = "" }: Aut
 
   const handleGoogle = async () => {
     setError(null);
+    clearAuthError();
     setBusy(true);
     try {
       await signInWithGoogle();
-      onClose?.();
     } catch (e: unknown) {
       setError(getAuthErrorMessage(e));
-    } finally {
       setBusy(false);
+    } finally {
+      // Redirect flow navigates away; if it fails without navigation, catch handles reset.
     }
   };
 
   const handleRedirect = async () => {
     setError(null);
+    clearAuthError();
     setBusy(true);
     try {
       await signInWithRedirectFallback();
@@ -54,6 +73,7 @@ export function AuthLoginPanel({ onClose, showHost = true, className = "" }: Aut
 
   const handleReset = async () => {
     setError(null);
+    clearAuthError();
     setBusy(true);
     try {
       await resetAuthState();
@@ -64,6 +84,7 @@ export function AuthLoginPanel({ onClose, showHost = true, className = "" }: Aut
 
   const handleSignOut = async () => {
     setError(null);
+    clearAuthError();
     setBusy(true);
     try {
       await signOut();
@@ -116,10 +137,13 @@ export function AuthLoginPanel({ onClose, showHost = true, className = "" }: Aut
       ) : (
         <div className="space-y-4">
           <p className="text-sm text-gray-600">You are not signed in.</p>
-          {error && (
+          <p className="text-xs text-gray-500">
+            Google sign-in uses popup first. If popup is blocked, redirect fallback is used.
+          </p>
+          {(error || authError) && (
             <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded" role="alert">
-              {error}
-              {error.includes("Firebase Console") && (
+              {error || authError}
+              {(error || authError)?.includes("Firebase Console") && (
                 <a
                   href="https://console.firebase.google.com/project/htoh-3-0/authentication/providers"
                   target="_blank"

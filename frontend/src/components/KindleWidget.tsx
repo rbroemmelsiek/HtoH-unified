@@ -8,15 +8,6 @@ import { AppMode } from './ai-academy-v1/types';
 const SAMPLE_PDF_URL = 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf';
 
 
-// #region agent log
-const __agentLog = (hypothesisId: string, location: string, message: string, data: any) => {
-  try {
-    fetch('http://127.0.0.1:7243/ingest/4469576f-e0f7-44d6-988c-2bfc5cb48a06',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId,location,message,data,timestamp:Date.now()})}).catch(()=>{});
-  } catch (_) {}
-};
-// #endregion
-
-
 function parseRange(rangeStr: string): number[] {
   const pages: number[] = [];
   const parts = rangeStr.split(',');
@@ -51,11 +42,10 @@ export function KindleWidget({ onClose, onToggleFullScreen, isFullScreen, agentI
       const map = raw ? JSON.parse(raw) : {};
       const rec = map[agentId];
       if (rec && typeof rec.url === 'string') {
-        __agentLog('H6','KindleWidget.tsx:restore','restore pdf url',{agentId, url: rec.url});
         setPdfFile(rec.url);
       }
     } catch (e) {
-      __agentLog('H6','KindleWidget.tsx:restoreError','restore error',{message: String(e)});
+      console.error('[KindleWidget] failed to restore pdf', e);
     }
     // only on agent change
   }, [agentId]);
@@ -68,19 +58,14 @@ export function KindleWidget({ onClose, onToggleFullScreen, isFullScreen, agentI
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleUploadClick = () => {
-    __agentLog('H6','KindleWidget.tsx:uploadClick','upload click',{agentId, agentName});
     fileInputRef.current?.click();
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    __agentLog('H6','KindleWidget.tsx:fileSelected','pdf selected',{name: file.name, size: file.size, type: file.type, agentId, agentName});
     setPdfFile(file);
   };
-
-
-  __agentLog('H6','KindleWidget.tsx:render','render kindle widget',{isFullScreen: !!isFullScreen, hasPdf: !!pdfFile, isPaid, currentPage, zoom, agentId, agentName});
 
   // Persist URL-based selection per agent (File uploads are session-only)
   useEffect(() => {
@@ -91,10 +76,9 @@ export function KindleWidget({ onClose, onToggleFullScreen, isFullScreen, agentI
         const map = raw ? JSON.parse(raw) : {};
         map[agentId] = { url: pdfFile, updatedAt: Date.now(), agentName: agentName || '' };
         localStorage.setItem(key, JSON.stringify(map));
-        __agentLog('H6','KindleWidget.tsx:persist','persist pdf url',{agentId, url: pdfFile});
       }
     } catch (e) {
-      __agentLog('H6','KindleWidget.tsx:persistError','persist error',{message: String(e)});
+      console.error('[KindleWidget] failed to persist pdf', e);
     }
   }, [agentId, pdfFile, agentName]);
 
@@ -115,9 +99,9 @@ export function KindleWidget({ onClose, onToggleFullScreen, isFullScreen, agentI
           </div>
           <div className="flex items-center gap-2">
             <input ref={fileInputRef} type="file" accept="application/pdf" className="hidden" onChange={handleFileChange} />
-            <button onClick={() => { __agentLog('H6','KindleWidget.tsx:useSample','use sample pdf',{agentId, agentName}); setPdfFile(SAMPLE_PDF_URL); }} className="px-3 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 text-white text-xs font-semibold" title="Use Sample PDF">Use Sample</button>
+            <button onClick={() => { setPdfFile(SAMPLE_PDF_URL); }} className="px-3 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 text-white text-xs font-semibold" title="Use Sample PDF">Use Sample</button>
             <button onClick={handleUploadClick} className="px-3 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 text-white text-xs font-semibold" title="Upload PDF">Upload</button>
-            <button onClick={() => { __agentLog('H6','KindleWidget.tsx:clearPdf','clear pdf',{agentId, agentName}); setPdfFile(null); }} className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white/80 text-xs font-semibold" title="Clear PDF">Clear</button>
+            <button onClick={() => { setPdfFile(null); }} className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white/80 text-xs font-semibold" title="Clear PDF">Clear</button>
             {onToggleFullScreen && (
               <button onClick={onToggleFullScreen} className="p-1.5 hover:bg-white/20 rounded-full text-white/80 hover:text-white" title={isFullScreen ? "Exit fullscreen" : "Fullscreen"}>
                 {isFullScreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}

@@ -19,19 +19,11 @@ import {
 } from './services/contactDirectory';
 import { CONTACTS_DIRECTORY_TABLE_DEF } from './services/contactDirectorySchema';
 
-// #region agent log
-const __agentLog = (hypothesisId: string, location: string, message: string, data: any) => {
-  try {
-    fetch('http://127.0.0.1:7243/ingest/4469576f-e0f7-44d6-988c-2bfc5cb48a06',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId,location,message,data,timestamp:Date.now()})}).catch(()=>{});
-  } catch (_) {}
-};
-// #endregion
-
 type ToolsMenuMode = 'main' | 'services' | 'transactional' | 'vendor';
 type AppView = 'dashboard' | 'academy' | 'help';
 
 function App() {
-  const { user, userProfile, setCurrentPlanId } = useAuth();
+  const { user, userProfile, setCurrentPlanId, authError } = useAuth();
   // Navigation state - Dashboard or Academy
   const [currentView, setCurrentView] = useState<AppView>('dashboard');
   // Load agents from localStorage or fallback to INITIAL_AGENTS
@@ -106,6 +98,12 @@ function App() {
 
   // Auth: login panel visibility
   const [showLoginPanel, setShowLoginPanel] = useState(false);
+
+  useEffect(() => {
+    if (!user && authError) {
+      setShowLoginPanel(true);
+    }
+  }, [user, authError]);
 
   // Config State
   const [config, setConfig] = useState<AppConfig>({
@@ -602,7 +600,6 @@ function App() {
   };
 
   const handleSimulateTool = (toolName: string) => {
-    __agentLog('H7','App.tsx:simulateTool','simulate tool clicked',{toolName});
     setIsSidebarOpen(false);
 
     const userMsg: Message = {
@@ -633,7 +630,6 @@ function App() {
       responseText = `Opening the Service Plan widget. [[WIDGET:Plan]]`;
     } else if (toolName.includes('Academy')) {
       responseText = `Opening Ai Academy. [[WIDGET:Academy]]`;
-      __agentLog('H7','App.tsx:openWidget','open academy from menu',{});
       // Navigate to Academy view instead of opening as widget
       setCurrentView('academy');
     } else if (toolName.includes('Help')) {
@@ -641,14 +637,12 @@ function App() {
       setCurrentView('help');
     } else if (toolName.includes('PDF Viewer') || toolName.includes('Kindle')) {
       responseText = `Opening PDF Viewer. [[WIDGET:PDFViewer]]`;
-      __agentLog('H7','App.tsx:openWidget','open pdf viewer from menu',{});
       setExpandedWidget('kindle');
       setExpandedWidgetData({ agentId: currentAgent.id, agentName: currentAgent.name });
       setExpandedInstance(prev => prev + 1);
     }
     else if (toolName.includes('Ai Hub')) {
       responseText = `Opening Ai Hub. [[WIDGET:AcademyHub]]`;
-      __agentLog('H7','App.tsx:openWidget','open academy hub from menu',{});
       setExpandedWidget('academy_hub');
       setExpandedWidgetData({ agentId: currentAgent.id, agentName: currentAgent.name });
       setExpandedInstance(prev => prev + 1);

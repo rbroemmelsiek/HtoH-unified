@@ -35,4 +35,5 @@ export interface PlanGateway {
   updatePlan?(plan: PlanGatewayResponse, planId?: string, ownerId?: string): void | Promise<void>;
   createPlan?(ownerId: string, name?: string): Promise<string>;
   listPlans?(ownerId: string): Promise<PlanSummary[]>;
+  renamePlan?(ownerId: string, planId: string, name: string): Promise<void>;
 }

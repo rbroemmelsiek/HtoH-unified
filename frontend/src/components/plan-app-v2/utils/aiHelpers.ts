@@ -2,14 +2,6 @@
 import { PlanRow, PlanDocument, PlanRowType } from "../types";
 import { findParent } from "./planHelpers";
 
-// #region agent log
-const __agentLog = (hypothesisId: string, location: string, message: string, data: any) => {
-  try {
-    fetch('http://127.0.0.1:7243/ingest/4469576f-e0f7-44d6-988c-2bfc5cb48a06',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId,location,message,data,timestamp:Date.now()})}).catch(()=>{});
-  } catch (_) {}
-};
-// #endregion
-
 const PLAN_AI_FUNCTION_URL =
   (typeof process !== "undefined" ? process?.env?.NEXT_PUBLIC_PLAN_AI_FUNCTION_URL : undefined) ||
   "https://us-central1-htoh-3-0.cloudfunctions.net/planAiAssist";
@@ -60,8 +52,6 @@ export const getAutocompleteSuggestion = async (
     - Example: User types "Plan a trip", you return " to Yosemite".
   `;
 
-    __agentLog('H2','aiHelpers.ts:autocomplete:request','autocomplete request',{model:'gemini-3-flash-preview', textLen: partialText.length});
-
 try {
     const payload = await requestPlanAi("autocomplete", prompt);
     let suggestion = (payload?.text || "").toString();
@@ -85,7 +75,6 @@ try {
     
     return suggestion;
   } catch (e) {
-    __agentLog('H2','aiHelpers.ts:autocomplete:error','autocomplete error',{name: (e && e.name) ? e.name : typeof e, message: (e && e.message) ? e.message : String(e)});
     console.error("Autocomplete Error:", e);
     return "";
   }
@@ -123,7 +112,6 @@ export const getBulkSubtasks = async (
     }
     return [];
   } catch (e) {
-    __agentLog('H2','aiHelpers.ts:bulk:error','bulk error',{name: (e && e.name) ? e.name : typeof e, message: (e && e.message) ? e.message : String(e)});
     console.error("Bulk Generation Error:", e);
     return [];
   }

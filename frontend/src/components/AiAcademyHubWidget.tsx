@@ -1,22 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { X, Maximize2, Minimize2 } from 'lucide-react';
 import DataTable from './ai-academy-v1/components/DataTable';
 import { MOCK_BOOK_DATA } from './ai-academy-v1/constants';
 
-// #region agent log
-const __agentLog = (hypothesisId: string, location: string, message: string, data: any) => {
-  try {
-    fetch('http://127.0.0.1:7243/ingest/4469576f-e0f7-44d6-988c-2bfc5cb48a06',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId,location,message,data,timestamp:Date.now()})}).catch(()=>{});
-  } catch (_) {}
-};
-// #endregion
-
 export function AiAcademyHubWidget({ onClose, onToggleFullScreen, isFullScreen, agentId, agentName }: { onClose: () => void; onToggleFullScreen?: () => void; isFullScreen?: boolean; agentId?: string; agentName?: string }) {
   const [isPaid, setIsPaid] = useState(false);
-
-  useEffect(() => {
-    __agentLog('H8','AiAcademyHubWidget.tsx:mount','mount academy hub',{agentId, agentName});
-  }, [agentId, agentName]);
 
   return (
     <div className="flex flex-col h-full bg-[#0a0a0f]">

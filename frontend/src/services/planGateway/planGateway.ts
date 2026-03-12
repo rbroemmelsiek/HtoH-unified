@@ -7,12 +7,16 @@ import { PlanGatewayResponse, PlanGatewayPostResponse, PlanSummary, PlanUpdateCa
 // We'll need to copy/adapt the Firebase gateway implementation
 let gateway: any = null;
 
+const FIREBASE_API_KEY = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+const FIREBASE_PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+const FIREBASE_APP_ID = process.env.NEXT_PUBLIC_FIREBASE_APP_ID;
+const PLAN_DATASOURCE = process.env.NEXT_PUBLIC_PLAN_DATASOURCE;
+
 function hasFirebaseWebConfig(): boolean {
-  const env = typeof process !== 'undefined' ? process.env : undefined;
   return Boolean(
-    env?.NEXT_PUBLIC_FIREBASE_API_KEY &&
-      env?.NEXT_PUBLIC_FIREBASE_PROJECT_ID &&
-      env?.NEXT_PUBLIC_FIREBASE_APP_ID
+    FIREBASE_API_KEY &&
+      FIREBASE_PROJECT_ID &&
+      FIREBASE_APP_ID
   );
 }
 
@@ -20,7 +24,7 @@ function hasFirebaseWebConfig(): boolean {
 async function getGateway() {
   if (gateway) return gateway;
 
-  const configuredDataSource = (typeof process !== "undefined" ? process.env?.NEXT_PUBLIC_PLAN_DATASOURCE : undefined);
+  const configuredDataSource = PLAN_DATASOURCE;
   const dataSource = (
     configuredDataSource ??
     (hasFirebaseWebConfig() ? "firebase" : "local")
@@ -109,6 +113,15 @@ class PlanGatewayService {
       return gw.listPlans(ownerId);
     }
     return [];
+  }
+
+  async renamePlan(ownerId: string, planId: string, name: string): Promise<void> {
+    const gw: any = await getGateway();
+    if (typeof gw.renamePlan === 'function') {
+      await gw.renamePlan(ownerId, planId, name);
+      return;
+    }
+    throw new Error('Active plan gateway does not support renamePlan');
   }
 }
 

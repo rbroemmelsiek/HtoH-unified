@@ -71,6 +71,20 @@ export default class FirebasePlanGateway implements PlanGateway {
     });
   }
 
+  async renamePlan(ownerId: string, planId: string, name: string): Promise<void> {
+    const db = requireFirestore();
+    const ref = doc(db, PLAN_COLLECTION, planId);
+    await setDoc(
+      ref,
+      {
+        ownerId,
+        name,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+  }
+
   async fetch(
     action: string,
     params: Record<string, unknown>
@@ -78,6 +92,7 @@ export default class FirebasePlanGateway implements PlanGateway {
     const db = requireFirestore();
     const explicitPlanId = typeof params.planId === 'string' ? params.planId : undefined;
     const ownerId = getOwnerId(params);
+    void action;
 
     if (explicitPlanId) {
       const ref = doc(db, PLAN_COLLECTION, explicitPlanId);

@@ -1,14 +1,7 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React from 'react';
 import { X, Maximize2, Minimize2, ExternalLink } from 'lucide-react';
 import EmbeddedPlanApp from './plan-app-v2/EmbeddedPlanApp';
-// #region agent log
-const __agentLog = (hypothesisId: string, location: string, message: string, data: any) => {
-  try {
-    fetch('http://127.0.0.1:7243/ingest/4469576f-e0f7-44d6-988c-2bfc5cb48a06',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId,location,message,data,timestamp:Date.now()})}).catch(()=>{});
-  } catch (_) {}
-};
-// #endregion
 
 
 interface PlanWidgetProps {
@@ -32,7 +25,6 @@ export const PlanWidget: React.FC<PlanWidgetProps> = ({
   showNav = true, // Show nav in expanded mode by default
   loadKey = 0
 }) => {
-  const planBodyRef = useRef<HTMLDivElement>(null);
   const planAppPort =
     (typeof process !== "undefined" ? process.env?.NEXT_PUBLIC_PLAN_APP_PORT : undefined) ??
     "5174";
@@ -44,21 +36,6 @@ export const PlanWidget: React.FC<PlanWidgetProps> = ({
   const effectiveDataSource = configuredDataSource ?? (hasFirebaseConfig ? 'firebase' : 'local');
   // Use Vue wrapper instead of iframe
   // This provides better integration and shared state
-
-  __agentLog('H1','PlanWidget.tsx:render','PlanWidget render',{planId,ownerId,showNav,isExpanded,isFullScreen,loadKey});
-
-  useEffect(() => {
-    const el = planBodyRef.current;
-    if (!el) return;
-    const cs = window.getComputedStyle(el);
-    __agentLog('H1','PlanWidget.tsx:scrollMetrics','plan body scroll metrics',{
-      overflow: cs.overflow,
-      overflowY: cs.overflowY,
-      clientHeight: el.clientHeight,
-      scrollHeight: el.scrollHeight,
-      canScroll: el.scrollHeight > el.clientHeight
-    });
-  });
 
   return (
     <div className="flex flex-col h-full bg-white">
@@ -102,7 +79,7 @@ export const PlanWidget: React.FC<PlanWidgetProps> = ({
       </div>
 
       {/* React Plan App Container - Full height */}
-      <div ref={planBodyRef} data-plan-scroll-container="plan-widget" className="flex-1 relative bg-gray-100 overflow-x-hidden overflow-y-auto" style={{ minHeight: 0 }}>
+      <div data-plan-scroll-container="plan-widget" className="flex-1 relative bg-gray-100 overflow-x-hidden overflow-y-auto" style={{ minHeight: 0 }}>
         <EmbeddedPlanApp
           key={`plan-app-${loadKey}`}
           planId={planId}

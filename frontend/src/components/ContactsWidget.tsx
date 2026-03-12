@@ -10,6 +10,10 @@ import {
   getContactDirectory,
   saveContactDirectory,
 } from '../services/contactDirectory';
+import {
+  ensureSeededContactsForOwner,
+  upsertContactsForOwner,
+} from '../services/contactDirectoryFirestore';
 
 interface ContactsWidgetProps {
   onExpand?: (selectedId?: string) => void;
@@ -68,6 +72,7 @@ export const ContactsWidget: React.FC<ContactsWidgetProps> = ({
 
   // Data State
   const [contacts, setContacts] = useState<ContactRecord[]>(() => getContactDirectory());
+  const [contactsHydrated, setContactsHydrated] = useState(false);
 
   // Selection / Editing State
   const [selectedContactId, setSelectedContactId] = useState<string | null>(initialSelectedId || null);
@@ -134,8 +139,66 @@ export const ContactsWidget: React.FC<ContactsWidgetProps> = ({
   const labelField = tableDef?.labelField || 'name';
 
   useEffect(() => {
+    let cancelled = false;
+
+    const hydrate = async () => {
+      const localContacts = getContactDirectory();
+      if (!user?.uid) {
+        if (!cancelled) {
+          setContacts(localContacts);
+          setContactsHydrated(true);
+        }
+        return;
+      }
+
+      try {
+        const plans = await planGateway.listPlans(user.uid);
+        const uniquePlanIds = new Set(plans.map((p) => p.id).filter(Boolean));
+        const planIds = Array.from(uniquePlanIds);
+
+        // Ensure we have multiple plans available for link-testing flows.
+        const supportsMultiPlanCreation = !planIds.includes('local');
+        let createAttempts = 0;
+        while (supportsMultiPlanCreation && planIds.length < 3 && createAttempts < 5) {
+          createAttempts += 1;
+          const createdPlanId = await planGateway.createPlan(user.uid, `Sample Service Plan ${planIds.length + 1}`);
+          if (createdPlanId && !planIds.includes(createdPlanId)) {
+            planIds.push(createdPlanId);
+          } else {
+            break;
+          }
+        }
+
+        const remoteContacts = await ensureSeededContactsForOwner(user.uid, localContacts, planIds);
+        if (!cancelled) {
+          setContacts(remoteContacts);
+          saveContactDirectory(remoteContacts);
+        }
+      } catch (error) {
+        console.error('[ContactsWidget] Failed to hydrate Firebase contacts, using local contacts.', error);
+        if (!cancelled) {
+          setContacts(localContacts);
+        }
+      } finally {
+        if (!cancelled) setContactsHydrated(true);
+      }
+    };
+
+    void hydrate();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.uid]);
+
+  useEffect(() => {
+    if (!contactsHydrated) return;
     saveContactDirectory(contacts);
-  }, [contacts]);
+
+    if (!user?.uid) return;
+    void upsertContactsForOwner(user.uid, contacts).catch((error) => {
+      console.error('[ContactsWidget] Failed syncing contacts to Firebase.', error);
+    });
+  }, [contacts, user?.uid, contactsHydrated]);
 
   // Effect to sync initial selection
   useEffect(() => {
@@ -420,6 +483,15 @@ export const ContactsWidget: React.FC<ContactsWidgetProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
+            {isExpanded && (
+              <button
+                onClick={() => setIsEditing(true)}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/20 hover:bg-white/30 text-white text-sm font-medium transition-colors"
+                title="Edit Contact"
+              >
+                <Edit3 size={16} /> Edit
+              </button>
+            )}
             {onToggleFullScreen && (
               <button onClick={onToggleFullScreen} className="p-1.5 hover:bg-white/20 rounded-full text-white/80 hover:text-white transition-colors" title={isFullScreen ? "Exit fullscreen" : "Fullscreen"}>
                 {isFullScreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
@@ -467,6 +539,15 @@ export const ContactsWidget: React.FC<ContactsWidgetProps> = ({
                 >
                   Create + Link Plan
                 </button>
+                {isExpanded && (
+                  <button
+                    onClick={() => setIsEditing(true)}
+                    className="flex-1 py-2.5 border border-gray-200 text-gray-700 bg-white rounded-lg font-bold text-sm hover:bg-gray-50 flex items-center justify-center gap-2 shadow-sm transition-transform active:scale-95"
+                    title="Edit contact in Forms Wizard"
+                  >
+                    <Edit3 size={18} /> Edit
+                  </button>
+                )}
               </div>
 
               <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">

@@ -189,4 +189,13 @@ export default class LocalPlanGateway implements PlanGateway {
       },
     ];
   }
+
+  async renamePlan(_ownerId: string, planId: string, name: string): Promise<void> {
+    if (planId !== 'local') return;
+    this.currentPlan = {
+      ...this.currentPlan,
+      name,
+    };
+    saveLocalPlan(this.currentPlan);
+  }
 }

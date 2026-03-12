@@ -3,6 +3,41 @@ runConfig:
   minInstances: 0
 
 env:
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+    value: AIzaSyDs79PbE7cN8zbSBvgzV8gRMF3hafUoUL4
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    value: htoh-3-0.firebaseapp.com
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    value: htoh-3-0
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+    value: htoh-3-0.firebasestorage.app
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+    value: "769485574848"
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+    value: 1:769485574848:web:7823515610717ddd0e9325
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
+    value: G-CLW0212ZTK
+    availability:
+      - BUILD
+      - RUNTIME
   - variable: NEXT_PUBLIC_GEMINI_PROXY_URL
     value: https://us-central1-htoh-3-0.cloudfunctions.net/geminiProxy
     availability:
@@ -19,7 +54,17 @@ env:
       - BUILD
       - RUNTIME
   - variable: NEXT_PUBLIC_PLAN_DATASOURCE
-    value: "local"
+    value: "firebase"
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_PLAN_COLLECTION
+    value: plans
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_CONTACTS_COLLECTION
+    value: contacts
     availability:
       - BUILD
       - RUNTIME

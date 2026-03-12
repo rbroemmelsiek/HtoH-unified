@@ -26,14 +26,6 @@ type ThunkResult<R> = ThunkAction<R, RootState, unknown, any>;
 
 import planGateway from '../../services/planGateway/planGateway';
 
-// #region agent log
-const __agentLog = (hypothesisId: string, location: string, message: string, data: any) => {
-  try {
-    fetch('http://127.0.0.1:7243/ingest/4469576f-e0f7-44d6-988c-2bfc5cb48a06',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId,location,message,data,timestamp:Date.now()})}).catch(()=>{});
-  } catch (_) {}
-};
-// #endregion
-
 // Helper functions (will need to be imported/adapted)
 function getCachedPlan(): any {
   // TODO: Implement or import from helpers
@@ -94,9 +86,8 @@ export const getPlan = createAsyncThunk(
         keyId: state.keyId,
         sessionType: state.sessionType,
       });
-      
-            __agentLog('H3','planAppThunks.ts:subscribe','planGateway.subscribe',{action, plan: state.plan, owner: state.owner});
-const unsubscribe = await planGateway.subscribe(
+
+      const unsubscribe = await planGateway.subscribe(
         action,
         {
           keyId: state.keyId,
@@ -116,8 +107,7 @@ const unsubscribe = await planGateway.subscribe(
 
       dispatch(setUnsubscribe(unsubscribe));
     } catch (error) {
-            __agentLog('H3','planAppThunks.ts:onError','subscribe failed',{error: String(error)});
-console.error('[PlanApp] Failed to subscribe to plan:', error);
+      console.error('[PlanApp] Failed to subscribe to plan:', error);
       await dispatch(handleFetchError());
     }
   }

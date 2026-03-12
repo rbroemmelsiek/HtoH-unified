@@ -5,14 +5,6 @@ import { hasTaskDescendant, findRowInTree } from '../utils/planHelpers';
 import { PlanRow } from '../types';
 import { CaretRightFillIcon, BoldCheckIcon } from './Icons';
 
-// #region agent log
-const __agentLog = (hypothesisId: string, location: string, message: string, data: any) => {
-  try {
-    fetch('http://127.0.0.1:7243/ingest/4469576f-e0f7-44d6-988c-2bfc5cb48a06',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId,location,message,data,timestamp:Date.now()})}).catch(()=>{});
-  } catch (_) {}
-};
-// #endregion
-
 const ProgressNav: React.FC = () => {
   const { state, dispatch } = usePlan();
   const navContainerRef = useRef<HTMLDivElement>(null);
@@ -47,10 +39,7 @@ const ProgressNav: React.FC = () => {
     };
     const scopedElement = scroller?.querySelector(`#${escapeId(eid)}`) as HTMLElement | null;
     const element = scopedElement || document.getElementById(eid);
-    if (!element) {
-      __agentLog('H1','ProgressNav.tsx:scrollToPanel','target element missing',{eid});
-      return;
-    }
+    if (!element) return;
 
     const navHeight = navContainerRef.current?.getBoundingClientRect().height || 55;
     const desiredGap = 10;
@@ -64,14 +53,12 @@ const ProgressNav: React.FC = () => {
         current = current.offsetParent as HTMLElement | null;
       }
       const target = Math.max(0, offset - navHeight - desiredGap);
-      __agentLog('H1','ProgressNav.tsx:scrollToPanel','scroll within scroller',{eid,navHeight,scrollerScrollTop: scroller.scrollTop,targetTop: target,offset});
       scroller.scrollTo({ top: Math.round(target), behavior: 'smooth' });
       return;
     }
 
     const elementPosition = element.getBoundingClientRect().top + window.pageYOffset;
     const targetTop = Math.max(0, elementPosition - navHeight - desiredGap);
-    __agentLog('H1','ProgressNav.tsx:scrollToPanel','scroll within window',{eid,navHeight,targetTop});
     window.scrollTo({ top: targetTop, behavior: 'smooth' });
   };
 
@@ -84,7 +71,6 @@ const ProgressNav: React.FC = () => {
   };
 
   const handleNavClick = (eid: string, index: number) => {
-    __agentLog('H1','ProgressNav.tsx:navClick','nav click',{eid,index});
     if (clickTimerRef.current) {
       clearTimeout(clickTimerRef.current);
       clickTimerRef.current = null;

@@ -17,15 +17,6 @@ import FakeProgressNav from './FakeProgressNav';
 import FakeTitle from './FakeTitle';
 import FakePanels from './FakePanels';
 
-
-// #region agent log
-const __agentLog = (hypothesisId: string, location: string, message: string, data: any) => {
-  try {
-    fetch('http://127.0.0.1:7243/ingest/4469576f-e0f7-44d6-988c-2bfc5cb48a06',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId,location,message,data,timestamp:Date.now()})}).catch(()=>{});
-  } catch (_) {}
-};
-// #endregion
-
 interface PlanAppProps {
   planId?: string;
   ownerId?: string | number;
@@ -44,7 +35,6 @@ const PlanAppContent: React.FC<PlanAppProps> = ({
   keyId = '',
 }) => {
   const dispatch = useAppDispatch();
-  __agentLog('H1','PlanAppContent.tsx:variant','plan app variant',{planAppVariant:'legacy_migrated_plan-app_folder'});
   const currentMode = useAppSelector(selectMode);
 
   useEffect(() => {

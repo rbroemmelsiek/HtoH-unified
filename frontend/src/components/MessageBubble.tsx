@@ -12,14 +12,6 @@ import { GraphWidget } from './GraphWidget';
 import { FormsWidget } from './FormsWidget';
 import { ContactsWidget } from './ContactsWidget';
 
-// #region agent log
-const __agentLog = (hypothesisId: string, location: string, message: string, data: any) => {
-  try {
-    fetch('http://127.0.0.1:7243/ingest/4469576f-e0f7-44d6-988c-2bfc5cb48a06',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId,location,message,data,timestamp:Date.now()})}).catch(()=>{});
-  } catch (_) {}
-};
-// #endregion
-
 interface MessageBubbleProps {
   message: Message;
   agent?: Agent | null;

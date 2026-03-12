@@ -1,8 +1,25 @@
 
 import { PlanRow, PlanRowType, PlanDocument } from '../types';
 
+let __idCounter = 0;
+
 export const generateId = (prefix: string = 'el'): string => {
-  return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+  __idCounter = (__idCounter + 1) % 1_000_000_000;
+  const ts = Date.now().toString(36);
+  const counter = __idCounter.toString(36);
+  let nonce = '';
+
+  try {
+    nonce = globalThis.crypto?.randomUUID?.().slice(0, 8) ?? '';
+  } catch (_) {
+    nonce = '';
+  }
+
+  if (!nonce) {
+    nonce = Math.random().toString(36).slice(2, 10);
+  }
+
+  return `${prefix}-${ts}-${counter}-${nonce}`;
 };
 
 export const getDummyElement = (type: PlanRowType, pid: string, pos: number): PlanRow => {
@@ -141,4 +158,32 @@ export const getVisibleFlatList = (nodes: PlanRow[], searchTerm: string, isSearc
     }
   }
   return result;
+};
+
+export const normalizePlanRowIds = (rows: PlanRow[]): number => {
+  const seen = new Set<string>();
+  let fixed = 0;
+
+  const visit = (items: PlanRow[], parentEid: string) => {
+    items.forEach((row, index) => {
+      row.pos = index;
+      if (row.pid !== parentEid) {
+        row.pid = parentEid;
+      }
+
+      if (!row.eid || seen.has(row.eid)) {
+        row.eid = generateId(row.type || 'el');
+        fixed += 1;
+      }
+
+      seen.add(row.eid);
+      if (!Array.isArray(row.children)) {
+        row.children = [];
+      }
+      visit(row.children, row.eid);
+    });
+  };
+
+  visit(rows, 'root');
+  return fixed;
 };

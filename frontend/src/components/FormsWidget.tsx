@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, Check, FileText, Maximize2, Minimize2, RefreshCw, Plus, Minus, Calendar, Clock, MapPin, Image as ImageIcon, PenTool, DollarSign, Percent, Link, Mail, Phone, Video, MousePointer, Palette, Search, Hash, Layout, Save, X, Scroll, ArrowUpDown, ChevronDown, ChevronUp, HelpCircle } from 'lucide-react';
 import { FieldDef, MesopType } from '../types';
 
@@ -833,8 +833,23 @@ export const FormsWidget: React.FC<FormsWidgetProps> = ({
   }, [activeSchema, data, firstStepTitle]);
 
   const updateField = (field: string, val: any) => {
-    setGenericFormData((prev: any) => ({ ...prev, [field]: val }));
-    if (onUpdateFormData) onUpdateFormData({ ...formData, [field]: val });
+    setGenericFormData((prev: any) => {
+      const next = { ...prev, [field]: val };
+
+      // Keep dependent Enum values valid when their source field changes.
+      activeSchema.forEach((schemaField) => {
+        if (schemaField.optionsSourceField !== field || !schemaField.optionsByValue) return;
+        const sourceValue = next[field];
+        const options = sourceValue ? (schemaField.optionsByValue[String(sourceValue)] || []) : [];
+        const existingValue = next[schemaField.name];
+        if (existingValue && !options.includes(String(existingValue))) {
+          next[schemaField.name] = '';
+        }
+      });
+
+      if (onUpdateFormData) onUpdateFormData(next);
+      return next;
+    });
   };
 
   const evaluateShowIf = (showIf: string | undefined): boolean => {
@@ -873,6 +888,22 @@ export const FormsWidget: React.FC<FormsWidgetProps> = ({
 
   const getVisibleFields = (fields: FieldDef[]) => fields.filter((field) => !field.hidden && evaluateShowIf(field.showIf));
 
+  const visibleSteps = useMemo(
+    () => steps.filter((step) => getVisibleFields(step.fields).length > 0),
+    [steps, genericFormData]
+  );
+
+  useEffect(() => {
+    if (visibleSteps.length === 0) return;
+    const stillVisible = visibleSteps.some((step) => step.id === currentStep);
+    if (!stillVisible) {
+      setCurrentStep(visibleSteps[0].id);
+    }
+  }, [visibleSteps, currentStep]);
+
+  const currentStepIndex = visibleSteps.findIndex((step) => step.id === currentStep);
+  const currentStepNumber = currentStepIndex >= 0 ? currentStepIndex + 1 : 1;
+
   const toggleSection = (id: number) => {
     setExpandedSections(prev => ({ ...prev, [id]: !prev[id] }));
   };
@@ -896,7 +927,7 @@ export const FormsWidget: React.FC<FormsWidgetProps> = ({
     checkScroll();
     window.addEventListener('resize', checkScroll);
     return () => window.removeEventListener('resize', checkScroll);
-  }, [steps, viewMode]);
+  }, [visibleSteps, viewMode]);
 
   const scrollStepper = (direction: 'left' | 'right') => {
     if (stepperRef.current) {
@@ -926,24 +957,24 @@ export const FormsWidget: React.FC<FormsWidgetProps> = ({
 
   const handleNext = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (currentStep < steps.length) {
-      const nextStep = currentStep + 1;
-      setCurrentStep(nextStep);
-      setTimeout(() => scrollToStepIndex(nextStep - 1), 100);
+    if (currentStepIndex >= 0 && currentStepIndex < visibleSteps.length - 1) {
+      const nextStep = visibleSteps[currentStepIndex + 1];
+      setCurrentStep(nextStep.id);
+      setTimeout(() => scrollToStepIndex(currentStepIndex + 1), 100);
     }
   };
 
   const handlePrev = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (currentStep > 1) {
-      const prevStep = currentStep - 1;
-      setCurrentStep(prevStep);
-      setTimeout(() => scrollToStepIndex(prevStep - 1), 100);
+    if (currentStepIndex > 0) {
+      const prevStep = visibleSteps[currentStepIndex - 1];
+      setCurrentStep(prevStep.id);
+      setTimeout(() => scrollToStepIndex(currentStepIndex - 1), 100);
     }
   };
 
   const renderGenericFields = () => {
-    const stepData = steps.find(s => s.id === currentStep);
+    const stepData = visibleSteps.find(s => s.id === currentStep);
     if (!stepData) return null;
 
     const fieldsToShow = getVisibleFields(getSortedFields(stepData.fields, currentStep));
@@ -983,7 +1014,7 @@ export const FormsWidget: React.FC<FormsWidgetProps> = ({
   const renderScrollMode = () => {
     return (
       <div className="space-y-6 pt-2 pb-20">
-        {steps.map(step => {
+        {visibleSteps.map(step => {
           const sortedFields = getVisibleFields(getSortedFields(step.fields, step.id));
           const isExpanded = expandedSections[step.id];
 
@@ -1063,7 +1094,7 @@ export const FormsWidget: React.FC<FormsWidgetProps> = ({
           <div className={`absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-white to-transparent z-20 flex items-center pl-1 transition-opacity duration-300 ${showLeftArrow ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}><button onClick={() => scrollStepper('left')} className="bg-white border border-gray-200 shadow-sm rounded-full p-1 hover:bg-[#F0F4FA] text-[#141D84]"><ChevronLeft size={14} /></button></div>
           <div className={`absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent z-20 flex items-center justify-end pr-1 transition-opacity duration-300 ${showRightArrow ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}><button onClick={() => scrollStepper('right')} className="bg-white border border-gray-200 shadow-sm rounded-full p-1 hover:bg-[#F0F4FA] text-[#141D84]"><ChevronRight size={14} /></button></div>
           <div ref={stepperRef} onScroll={checkScroll} className="flex items-center gap-8 px-4 overflow-x-auto no-scrollbar scroll-smooth">
-            {steps.map((step, idx) => (
+            {visibleSteps.map((step, idx) => (
               <React.Fragment key={step.id}>
                 <div
                   data-step-item
@@ -1075,7 +1106,7 @@ export const FormsWidget: React.FC<FormsWidgetProps> = ({
                   </div>
                   <span className={`text-xs font-bold uppercase tracking-wide whitespace-nowrap ${currentStep === step.id ? 'text-[#141D84]' : 'text-gray-500'}`}>{step.title}</span>
                 </div>
-                {idx < steps.length - 1 && (
+                {idx < visibleSteps.length - 1 && (
                   <div className="h-px w-8 bg-gray-200 flex-shrink-0 border-t border-dashed border-gray-300"></div>
                 )}
               </React.Fragment>
@@ -1099,15 +1130,15 @@ export const FormsWidget: React.FC<FormsWidgetProps> = ({
           </div>
 
           <div className="flex items-center gap-4">
-            <button onClick={handlePrev} disabled={currentStep === 1} className="text-gray-500 hover:text-[#141D84] disabled:opacity-30 font-bold text-xs flex items-center gap-1 transition-all uppercase tracking-wide">
+            <button onClick={handlePrev} disabled={currentStepNumber <= 1} className="text-gray-500 hover:text-[#141D84] disabled:opacity-30 font-bold text-xs flex items-center gap-1 transition-all uppercase tracking-wide">
               <ChevronLeft size={14} /> Back
             </button>
 
             <div className="text-xs font-black text-gray-400 tracking-widest bg-gray-200/50 px-2 py-1 rounded">
-              {currentStep} / {steps.length}
+              {currentStepNumber} / {visibleSteps.length}
             </div>
 
-            {currentStep < steps.length ? (
+            {currentStepNumber < visibleSteps.length ? (
               <button onClick={handleNext} className="text-[#141D84] hover:text-blue-700 font-bold text-xs flex items-center gap-1 transition-all uppercase tracking-wide">
                 Next <ChevronRight size={14} />
               </button>

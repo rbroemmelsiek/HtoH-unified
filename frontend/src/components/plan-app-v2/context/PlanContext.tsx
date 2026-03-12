@@ -2,7 +2,7 @@
 import React, { createContext, useContext, useReducer, ReactNode, useEffect, useState } from 'react';
 import { PlanDocument, PlanRow, AddChildType } from '../types';
 import { SAMPLE_PLAN } from '../constants';
-import { clonePlan, findRowInTree, findFamily, getDummyElement, findParent, deleteRowFromTree, findPathToNode, generateId } from '../utils/planHelpers';
+import { clonePlan, findRowInTree, findFamily, getDummyElement, findParent, deleteRowFromTree, findPathToNode, normalizePlanRowIds } from '../utils/planHelpers';
 import planGateway from '../../../services/planGateway/planGateway';
 import { useAuth } from '../../../context/AuthContext';
 
@@ -38,6 +38,7 @@ const initialState: PlanState = {
 
 type Action =
   | { type: 'INIT_PLAN'; payload: PlanDocument }
+  | { type: 'SET_PLAN_NAME'; payload: string }
   | { type: 'SET_SEARCH_TERM'; payload: string }
   | { type: 'SET_HOVERED_ROW'; payload: string | null }
   | { type: 'SET_DRAGGED_ROW'; payload: string | null }
@@ -70,6 +71,15 @@ const planReducer = (state: PlanState, action: Action): PlanState => {
   switch (action.type) {
     case 'INIT_PLAN':
       return { ...state, plan: action.payload };
+
+    case 'SET_PLAN_NAME':
+      return {
+        ...state,
+        plan: {
+          ...state.plan,
+          name: action.payload,
+        },
+      };
 
     case 'SET_SEARCH_TERM':
       return { ...state, searchTerm: action.payload, isSearchEnabled: action.payload.trim().length > 0 };
@@ -272,6 +282,15 @@ export const PlanProvider = ({ children, planId, ownerId }: { children?: ReactNo
   // Load an existing plan document from the active gateway (local storage today, Firebase later).
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    const planDatasource = (process.env.NEXT_PUBLIC_PLAN_DATASOURCE || '').toLowerCase();
+    const isFirebaseDatasource = planDatasource === 'firebase';
+
+    // In Firebase mode, logged-out users cannot read owner-scoped plans.
+    // Keep sample in-memory plan and skip gateway calls to prevent console permission errors.
+    if (isFirebaseDatasource && !resolvedOwnerId) {
+      setHasLoadedPlan(false);
+      return;
+    }
 
     let cancelled = false;
     setHasLoadedPlan(false);
@@ -290,6 +309,7 @@ export const PlanProvider = ({ children, planId, ownerId }: { children?: ReactNo
             children: response.root.children || [],
           },
         };
+        normalizePlanRowIds(loadedPlan.root.children);
 
         dispatch({ type: 'INIT_PLAN', payload: loadedPlan });
         setActivePlanId(response.planId || resolvedPlanId);
@@ -302,7 +322,7 @@ export const PlanProvider = ({ children, planId, ownerId }: { children?: ReactNo
     return () => {
       cancelled = true;
     };
-  }, [resolvedOwnerId, resolvedPlanId]);
+  }, [resolvedOwnerId, resolvedPlanId, user?.uid]);
 
   // Persist plan changes through the gateway (currently LocalPlanGateway → localStorage).
   useEffect(() => {
