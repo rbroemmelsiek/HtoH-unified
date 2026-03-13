@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useAuth } from "../context/AuthContext";
-import { Loader2 } from "lucide-react";
+import { Loader2, ShieldAlert, Bug, ExternalLink, RefreshCw } from "lucide-react";
 
 interface AuthLoginPanelProps {
   onClose?: () => void;
@@ -26,6 +26,7 @@ export function AuthLoginPanel({ onClose, showHost = true, className = "" }: Aut
   } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [showDebug, setShowDebug] = useState(false);
 
   React.useEffect(() => {
     if (user) {
@@ -36,13 +37,19 @@ export function AuthLoginPanel({ onClose, showHost = true, className = "" }: Aut
   /** Turn Firebase auth errors into a user-friendly message (and optional fix). */
   const getAuthErrorMessage = (e: unknown): string => {
     const msg = e instanceof Error ? e.message : String(e);
-    if (msg.includes("configuration-not-found") || (e as { code?: string })?.code === "auth/configuration-not-found") {
+    const code = (e as { code?: string })?.code || "";
+    
+    if (code === "auth/configuration-not-found" || msg.includes("configuration-not-found")) {
       return "Firebase Authentication is not enabled for this project. In Firebase Console → Authentication, click “Get started”, then enable the “Google” sign-in provider and set a support email.";
     }
-    if (msg.includes("invalid-api-key") || (e as { code?: string })?.code === "auth/invalid-api-key") {
+    if (code === "auth/invalid-api-key" || msg.includes("invalid-api-key")) {
       return "Invalid Firebase API key. Check NEXT_PUBLIC_FIREBASE_API_KEY in .env.local and restart the dev server.";
     }
-    return msg || "Sign-in failed";
+    if (code === "auth/unauthorized-domain" || msg.includes("unauthorized-domain")) {
+      const host = typeof window !== "undefined" ? window.location.host : "this domain";
+      return `Domain "${host}" is not authorized. You must add this exact domain to "Authorized domains" in the Firebase Console.`;
+    }
+    return msg || `Sign-in failed (${code})`;
   };
 
   const handleGoogle = async () => {
@@ -54,8 +61,6 @@ export function AuthLoginPanel({ onClose, showHost = true, className = "" }: Aut
     } catch (e: unknown) {
       setError(getAuthErrorMessage(e));
       setBusy(false);
-    } finally {
-      // Redirect flow navigates away; if it fails without navigation, catch handles reset.
     }
   };
 
@@ -99,98 +104,167 @@ export function AuthLoginPanel({ onClose, showHost = true, className = "" }: Aut
       ? window.location.origin
       : "";
 
+  const configStatus = {
+    apiKey: !!process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+    projectId: !!process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+    authDomain: !!process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  };
+
   return (
     <div
-      className={`bg-white rounded-xl border border-gray-200 shadow-lg p-6 max-w-md ${className}`}
+      className={`bg-white rounded-xl border border-gray-200 shadow-lg p-6 max-w-md w-full ${className}`}
       role="dialog"
       aria-labelledby="auth-heading"
     >
-      <h2 id="auth-heading" className="text-xl font-semibold text-[#141D84] mb-2">
-        Login
-      </h2>
+      <div className="flex justify-between items-center mb-4">
+        <h2 id="auth-heading" className="text-xl font-semibold text-[#141D84]">
+          Account
+        </h2>
+        <div className="flex gap-1">
+          <button 
+            onClick={() => window.location.reload()}
+            className="p-1 text-gray-400 hover:text-[#141D84] transition-colors"
+            title="Reload page"
+          >
+            <RefreshCw size={16} />
+          </button>
+          <button 
+            onClick={() => setShowDebug(!showDebug)}
+            className="p-1 text-gray-400 hover:text-[#141D84] transition-colors"
+            title="Toggle debug info"
+          >
+            <Bug size={16} />
+          </button>
+        </div>
+      </div>
+
+      {showDebug && (
+        <div className="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200 text-[10px] font-mono text-gray-600 overflow-x-auto">
+          <p className="font-bold mb-1 border-b pb-1">Debug Info:</p>
+          <p>Host: {currentHost}</p>
+          <p>API Key: {configStatus.apiKey ? "Loaded" : "MISSING"}</p>
+          <p>Project ID: {process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "MISSING"}</p>
+          <p>Auth Domain: {process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "MISSING"}</p>
+          <p>Configured: {isConfigured ? "Yes" : "NO"}</p>
+          <p>User UID: {user?.uid || "none"}</p>
+        </div>
+      )}
 
       {loading ? (
-        <div className="flex items-center gap-2 text-gray-600 py-4">
-          <Loader2 className="animate-spin" size={20} />
-          <span>Checking sign-in…</span>
+        <div className="flex flex-col items-center justify-center py-8 text-gray-600">
+          <Loader2 className="animate-spin mb-2 text-[#141D84]" size={32} />
+          <span className="text-sm font-medium">Initializing Authentication…</span>
         </div>
       ) : user ? (
-        <div className="space-y-3">
-          <p className="text-sm text-gray-700">
-            Signed in as <strong>{user.email ?? user.uid}</strong>
-          </p>
+        <div className="space-y-4">
+          <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
+            {user.photoURL ? (
+              <img src={user.photoURL} alt="" className="w-10 h-10 rounded-full border border-white shadow-sm" />
+            ) : (
+              <div className="w-10 h-10 rounded-full bg-[#141D84] flex items-center justify-center text-white font-bold">
+                {user.email?.[0].toUpperCase() || "?"}
+              </div>
+            )}
+            <div className="overflow-hidden">
+              <p className="text-sm font-semibold text-blue-900 truncate">{user.displayName || "User"}</p>
+              <p className="text-xs text-blue-700 truncate">{user.email}</p>
+            </div>
+          </div>
           <button
             type="button"
             onClick={handleSignOut}
             disabled={busy}
-            className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-800 text-sm font-medium transition disabled:opacity-50"
+            className="w-full px-4 py-2 rounded-lg bg-white border border-gray-300 hover:bg-gray-50 text-gray-800 text-sm font-medium transition shadow-sm disabled:opacity-50"
           >
             {busy ? "Signing out…" : "Sign out"}
           </button>
         </div>
       ) : !isConfigured ? (
         <div className="space-y-3">
-          <p className="text-sm text-amber-700 bg-amber-50 px-3 py-2 rounded">
-            Firebase is not configured. Add <code className="text-xs bg-amber-100 px-1 rounded">NEXT_PUBLIC_FIREBASE_API_KEY</code> and <code className="text-xs bg-amber-100 px-1 rounded">NEXT_PUBLIC_FIREBASE_PROJECT_ID</code> to <code className="text-xs bg-amber-100 px-1 rounded">frontend/.env.local</code> and restart the dev server.
-          </p>
+          <div className="flex gap-3 p-4 bg-amber-50 text-amber-800 rounded-lg border border-amber-200">
+            <ShieldAlert size={24} className="shrink-0" />
+            <div className="text-sm">
+              <p className="font-bold">Firebase Configuration Error</p>
+              <p className="mt-1 opacity-90 leading-relaxed">
+                The web application is missing its Firebase connection settings. 
+                Verify that <code>NEXT_PUBLIC_FIREBASE_API_KEY</code> and <code>NEXT_PUBLIC_FIREBASE_PROJECT_ID</code> are set in your environment.
+              </p>
+            </div>
+          </div>
         </div>
       ) : (
         <div className="space-y-4">
-          <p className="text-sm text-gray-600">You are not signed in.</p>
-          <p className="text-xs text-gray-500">
-            Google sign-in uses popup first. If popup is blocked, redirect fallback is used.
+          <p className="text-sm text-gray-600 leading-relaxed">
+            Please sign in to access your Service Plan, contacts, and professional tools.
           </p>
+          
           {(error || authError) && (
-            <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded" role="alert">
-              {error || authError}
-              {(error || authError)?.includes("Firebase Console") && (
-                <a
-                  href="https://console.firebase.google.com/project/htoh-3-0/authentication/providers"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block mt-2 text-[#141D84] hover:underline font-medium"
-                >
-                  Open Authentication settings →
-                </a>
-              )}
-            </p>
+            <div className="flex gap-3 p-4 bg-red-50 text-red-700 rounded-lg border border-red-200" role="alert">
+              <ShieldAlert size={24} className="shrink-0" />
+              <div className="text-sm">
+                <p className="font-bold">Authorization Failed</p>
+                <p className="mt-1 leading-relaxed">{error || authError}</p>
+                
+                {((error || authError)?.includes("Domain") || (error || authError)?.includes("host")) && (
+                  <div className="mt-3 p-2 bg-white/50 rounded border border-red-100 font-mono text-[10px] break-all">
+                    Authorized domain to add: <strong>{typeof window !== "undefined" ? window.location.host : ""}</strong>
+                  </div>
+                )}
+
+                {(error || authError)?.includes("Console") && (
+                  <a
+                    href={`https://console.firebase.google.com/project/${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "htoh-3-0"}/authentication/providers`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 mt-3 font-bold hover:underline text-[#141D84]"
+                  >
+                    Open Firebase Console <ExternalLink size={14} />
+                  </a>
+                )}
+              </div>
+            </div>
           )}
-          <div className="flex flex-wrap gap-2">
-            {/* Free tier: Google SSO */}
-            {(tier === "free" || tier === "paid") && (
-              <button
-                type="button"
-                onClick={handleGoogle}
-                disabled={busy}
-                className="px-4 py-2 rounded-lg bg-[#141D84] hover:bg-[#0f1762] text-white text-sm font-medium transition disabled:opacity-50 flex items-center gap-2"
-              >
-                {busy ? <Loader2 className="animate-spin" size={16} /> : null}
-                Sign in with Google
-              </button>
-            )}
+
+          <div className="space-y-3 pt-2">
+            <button
+              type="button"
+              onClick={handleGoogle}
+              disabled={busy}
+              className="w-full px-4 py-3 rounded-lg bg-[#141D84] hover:bg-[#0f1762] text-white text-sm font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-3 shadow-md hover:shadow-lg active:scale-[0.98]"
+            >
+              {busy ? <Loader2 className="animate-spin" size={18} /> : <i className="fab fa-google" />}
+              Sign in with Google
+            </button>
+            
+            <div className="relative py-3">
+              <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-100"></div></div>
+              <div className="relative flex justify-center text-[10px] uppercase tracking-wider"><span className="bg-white px-2 text-gray-400 font-bold">Trouble with popups?</span></div>
+            </div>
+
             <button
               type="button"
               onClick={handleRedirect}
               disabled={busy}
-              className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-800 text-sm font-medium transition disabled:opacity-50"
+              className="w-full px-4 py-2.5 rounded-lg bg-gray-50 border border-gray-200 hover:bg-gray-100 text-gray-700 text-xs font-semibold transition shadow-sm disabled:opacity-50"
             >
-              Sign in with Redirect (fallback)
+              Use Redirect Flow (Mobile)
             </button>
+            
             <button
               type="button"
               onClick={handleReset}
               disabled={busy}
-              className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-800 text-sm font-medium transition disabled:opacity-50"
+              className="w-full px-4 py-2 rounded-lg text-gray-400 hover:text-gray-600 text-[10px] font-medium transition disabled:opacity-50"
             >
-              Reset Auth State
+              Reset Session State
             </button>
           </div>
         </div>
       )}
 
-      {showHost && currentHost && (
-        <p className="mt-4 text-xs text-gray-400 border-t border-gray-100 pt-3">
-          Current host: {currentHost}
+      {showHost && currentHost && !showDebug && (
+        <p className="mt-6 text-[10px] text-gray-400 border-t border-gray-50 pt-4 text-center">
+          Current host: <span className="font-mono">{currentHost}</span>
         </p>
       )}
     </div>

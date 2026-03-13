@@ -75,19 +75,28 @@ export function AuthProvider({ children, defaultTier = "free" }: AuthProviderPro
     const code = (err as { code?: string })?.code ?? "";
     const msg = (err as Error)?.message ?? String(err ?? "");
 
-    if (code.includes("auth/unauthorized-domain")) {
-      return "This host is not authorized in Firebase Authentication. Add localhost (or your current host) to Authorized domains.";
+    console.error("[Auth] Detailed error:", { code, msg, err });
+
+    if (code === "auth/unauthorized-domain") {
+      const currentHost = typeof window !== "undefined" ? window.location.host : "this domain";
+      return `This host (${currentHost}) is not authorized in Firebase Authentication. Add it to "Authorized domains" in the Firebase Console.`;
     }
-    if (code.includes("auth/popup-closed-by-user") || code.includes("auth/cancelled-popup-request")) {
+    if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
       return "Sign-in was canceled before completion.";
     }
-    if (code.includes("auth/network-request-failed")) {
+    if (code === "auth/network-request-failed") {
       return "Network error during sign-in. Check connection and try again.";
     }
-    if (code.includes("auth/configuration-not-found")) {
+    if (code === "auth/configuration-not-found") {
       return "Google sign-in provider is not enabled in Firebase Authentication settings.";
     }
-    return msg || "Sign-in failed. Please try again.";
+    if (code === "auth/invalid-api-key") {
+      return "Invalid Firebase API key. Please check your configuration.";
+    }
+    if (code === "auth/internal-error") {
+      return "Firebase internal error. This often happens if the Google sign-in provider is misconfigured.";
+    }
+    return msg || `Sign-in failed (${code}). Please try again.`;
   };
 
   const ensureUserDoc = useCallback(async (authUser: User): Promise<UserProfile> => {
@@ -235,17 +244,23 @@ export function AuthProvider({ children, defaultTier = "free" }: AuthProviderPro
     setAuthError(null);
     try {
       const provider = new GoogleAuthProvider();
+      // Add custom parameters to help with account selection if needed
+      provider.setCustomParameters({ prompt: 'select_account' });
+      
       await signInWithPopup(firebaseAuth, provider);
     } catch (err) {
       const errorCode = (err as { code?: string })?.code ?? "";
+      console.warn("[Auth] Popup failed, checking fallback:", errorCode);
 
       const shouldFallbackToRedirect =
         errorCode === "auth/popup-blocked" ||
         errorCode === "auth/popup-closed-by-user" ||
         errorCode === "auth/cancelled-popup-request" ||
-        errorCode === "auth/operation-not-supported-in-this-environment";
+        errorCode === "auth/operation-not-supported-in-this-environment" ||
+        errorCode === "auth/internal-error"; // Sometimes internal error happens if popup is blocked weirdly
 
       if (shouldFallbackToRedirect) {
+        console.info("[Auth] Falling back to redirect flow...");
         try {
           const provider = new GoogleAuthProvider();
           if (typeof window !== "undefined") {
@@ -263,7 +278,7 @@ export function AuthProvider({ children, defaultTier = "free" }: AuthProviderPro
           throw redirectErr;
         }
       } else {
-        console.error("[Auth] Google popup error:", err);
+        console.error("[Auth] Google popup error (no fallback):", err);
         if (typeof window !== "undefined") {
           window.sessionStorage.removeItem(REDIRECT_PENDING_KEY);
         }
@@ -272,7 +287,8 @@ export function AuthProvider({ children, defaultTier = "free" }: AuthProviderPro
         throw err;
       }
     } finally {
-      setLoading(false);
+      // Don't set loading false here because redirect might be in progress 
+      // or popup might have succeeded and listener will handle it.
     }
   };
 

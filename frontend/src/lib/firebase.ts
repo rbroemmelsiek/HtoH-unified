@@ -21,6 +21,14 @@ const hasConfig =
   typeof firebaseConfig.projectId === 'string' &&
   firebaseConfig.projectId.length > 0;
 
+if (!hasConfig && typeof window !== 'undefined') {
+  console.warn('[Firebase] Configuration missing or incomplete:', {
+    hasApiKey: !!firebaseConfig.apiKey,
+    hasProjectId: !!firebaseConfig.projectId,
+    nodeEnv: process.env.NODE_ENV,
+  });
+}
+
 const app: FirebaseApp | null = hasConfig
   ? getApps().length
     ? getApp()
