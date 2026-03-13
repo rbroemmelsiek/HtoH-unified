@@ -34,6 +34,14 @@ interface EnumCatalogContextValue {
 }
 
 const EnumCatalogContext = createContext<EnumCatalogContextValue | null>(null);
+const FALLBACK_ENUM_CONTEXT: EnumCatalogContextValue = {
+  groupedCatalog: {},
+  loading: false,
+  error: null,
+  getOptionsForCategory: (_category?: string, fallback: string[] = []) => fallback,
+  getSelectOptionsForCategory: (_category?: string, fallback: string[] = []) =>
+    fallback.map((item) => ({ label: item, value: item })),
+};
 
 function normalizeCatalogItem(id: string, raw: Record<string, unknown>): EnumCatalogItem | null {
   const enumCategory = String(raw.EnumCategory || raw.enumCategory || '').trim();
@@ -164,7 +172,7 @@ export function EnumCatalogProvider({ children }: { children: React.ReactNode })
 export function useEnumCatalog(): EnumCatalogContextValue {
   const context = useContext(EnumCatalogContext);
   if (!context) {
-    throw new Error('useEnumCatalog must be used within EnumCatalogProvider');
+    return FALLBACK_ENUM_CONTEXT;
   }
   return context;
 }
