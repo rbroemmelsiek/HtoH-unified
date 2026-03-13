@@ -23,15 +23,41 @@ export const sendMessageToGemini = async (
   history: Message[],
   newMessage: string,
   config: AppConfig,
-  activeAgent: Agent
-): Promise<string> => {
+  activeAgent: Agent,
+  sessionId?: string
+): Promise<{text: string; sessionId?: string}> => {
   const payload = await callGeminiProxy("sendMessage", {
     history,
     newMessage,
     config,
     activeAgent,
+    sessionId,
   });
-  return payload?.text || "No response generated.";
+  return {
+    text: payload?.text || "No response generated.",
+    sessionId: payload?.sessionId,
+  };
+};
+
+/**
+ * Approves a pending HITL action.
+ */
+export const approveAction = async (
+  history: Message[],
+  config: AppConfig,
+  activeAgent: Agent,
+  sessionId: string
+): Promise<{text: string; sessionId?: string}> => {
+  const payload = await callGeminiProxy("approveAction", {
+    history,
+    config,
+    activeAgent,
+    sessionId,
+  });
+  return {
+    text: payload?.text || "Action approved.",
+    sessionId: payload?.sessionId,
+  };
 };
 
 /**

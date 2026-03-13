@@ -3,6 +3,8 @@ import {onRequest as onRequestV2} from "firebase-functions/v2/https";
 import {onRequest} from "firebase-functions/https";
 import * as logger from "firebase-functions/logger";
 import type {GoogleGenAI as GoogleGenAIClient} from "@google/genai";
+import {Config, ApprovalMode, Storage} from "@google/gemini-cli-core";
+import * as os from "os";
 
 setGlobalOptions({maxInstances: 10});
 
@@ -46,7 +48,74 @@ type GeminiProxyAction =
   | "suggestions"
   | "tts"
   | "academyChat"
-  | "academyTts";
+  | "academyTts"
+  | "approveAction";
+
+type SchemaField = {
+  name?: string;
+  label?: string;
+  type?: string;
+  options?: string[];
+  enumCategory?: string;
+  optionsSourceField?: string;
+  optionsByValue?: Record<string, string[]>;
+};
+
+type SchemaTableDefinition = {
+  id?: string;
+  name?: string;
+  schema?: SchemaField[];
+  keyField?: string;
+  labelField?: string;
+};
+
+const MESOP_TYPES = new Set([
+  "Address", "App", "ChangeCounter", "ChangeLocation", "ChangeTimestamp",
+  "Color", "Date", "DateTime", "Time", "Decimal", "Number", "Percent",
+  "Price", "Progress", "Duration", "Email", "File", "Image", "LatLong",
+  "LongText", "Name", "Phone", "Ref", "Signature", "Text", "Thumbnail",
+  "Url", "Video", "XY", "Yes/No", "Enum", "EnumList", "Drawing", "PageBreak", "SectionHeader",
+]);
+
+function validateSchemaTableDefinition(def: SchemaTableDefinition): string[] {
+  const errors: string[] = [];
+  if (!def.id?.trim()) errors.push("Table definition missing id.");
+  if (!def.name?.trim()) errors.push("Table definition missing name.");
+  if (!def.keyField?.trim()) errors.push("Table definition missing keyField.");
+  if (!def.labelField?.trim()) errors.push("Table definition missing labelField.");
+  if (!Array.isArray(def.schema) || def.schema.length === 0) {
+    errors.push("Table definition requires a non-empty schema array.");
+    return errors;
+  }
+
+  const seen = new Set<string>();
+  def.schema.forEach((field, idx) => {
+    if (!field.name?.trim()) errors.push(`Field[${idx}] missing name.`);
+    if (!field.label?.trim()) errors.push(`Field[${idx}] missing label.`);
+    if (!field.type || !MESOP_TYPES.has(field.type)) {
+      errors.push(`Field[${idx}] has invalid type "${String(field.type ?? "")}".`);
+    }
+    if (field.name) {
+      if (seen.has(field.name)) errors.push(`Duplicate field name "${field.name}".`);
+      seen.add(field.name);
+    }
+
+    if (field.optionsSourceField && !field.optionsByValue) {
+      errors.push(`Field "${field.name ?? idx}" has optionsSourceField but no optionsByValue.`);
+    }
+    if (field.optionsByValue && !field.optionsSourceField) {
+      errors.push(`Field "${field.name ?? idx}" has optionsByValue but no optionsSourceField.`);
+    }
+    if ((field.type === "Enum" || field.type === "EnumList") &&
+        !field.options &&
+        !field.enumCategory &&
+        !field.optionsSourceField) {
+      errors.push(`Field "${field.name ?? idx}" has no enum options source.`);
+    }
+  });
+
+  return errors;
+}
 
 export const planAiAssist = onRequest(async (req, res) => {
   res.set("Access-Control-Allow-Origin", "*");
@@ -56,6 +125,7 @@ export const planAiAssist = onRequest(async (req, res) => {
     res.status(204).send("");
     return;
   }
+
   if (req.method !== "POST") {
     res.status(405).json({ok: false, error: "Use POST"});
     return;
@@ -123,53 +193,60 @@ export const geminiProxy = onRequest(async (req, res) => {
     const action = String(req.body?.action ?? "") as GeminiProxyAction;
     const project = process.env.VERTEX_PROJECT ?? process.env.GCLOUD_PROJECT;
     const location = process.env.VERTEX_LOCATION ?? "global";
+
+    if (action === "sendMessage" || action === "approveAction") {
+      const history = Array.isArray(req.body?.history) ? req.body.history : [];
+      const newMessage = String(req.body?.newMessage ?? "");
+      const approvalMode = (req.body?.approvalMode as ApprovalMode) ?? ApprovalMode.PLAN;
+
+      // Initialize Core Library
+      const targetDir = os.tmpdir();
+      const sessionId = req.body?.sessionId || `session-${Date.now()}`;
+      const storage = new Storage(targetDir, sessionId);
+      await storage.initialize();
+
+      const coreConfig = new Config({
+        sessionId,
+        targetDir,
+        cwd: targetDir,
+        model: "gemini-2.5-flash",
+        debugMode: true,
+        approvalMode,
+        plan: true,
+        skillsSupport: true,
+      });
+      await coreConfig.initialize();
+
+      const client = coreConfig.getGeminiClient();
+      await client.initialize();
+
+      // Convert history to Core format
+      const coreHistory = history.map((msg: any) => ({
+        role: msg.role === "assistant" ? "model" : "user",
+        parts: [{text: msg.text || msg.content || ""}],
+      }));
+      client.setHistory(coreHistory);
+
+      const response = await client.generateContent("default" as any, [
+        {role: "user", parts: [{text: newMessage}]},
+      ], new AbortController().signal, "main" as any);
+
+      const text = response.text || "No response generated.";
+
+      res.status(200).json({
+        ok: true, 
+        text, 
+        sessionId,
+      });
+      return;
+    }
+
     const {GoogleGenAI} = await import("@google/genai");
     const ai: GoogleGenAIClient = new GoogleGenAI({
       vertexai: true,
       project,
       location,
     });
-
-    if (action === "sendMessage") {
-      const history = Array.isArray(req.body?.history) ? req.body.history : [];
-      const newMessage = String(req.body?.newMessage ?? "");
-      const config = req.body?.config ?? {};
-      const activeAgent = req.body?.activeAgent ?? {};
-      let effectiveSystemInstruction = String(activeAgent.systemInstruction ?? "");
-      const tools = Array.isArray(activeAgent.tools) ? activeAgent.tools : [];
-      const customEndpoints = Array.isArray(activeAgent.customEndpoints) ? activeAgent.customEndpoints : [];
-      if (tools.length > 0) {
-        effectiveSystemInstruction += `\n\n[Available Tools]: ${tools.join(", ")}`;
-        effectiveSystemInstruction += `\n\n[WIDGET INSTRUCTIONS]
-If the user's request matches a tool capability, use the specific tag in your response:
-- "Calendar Integration": Use "[[WIDGET:Calendar]]" for scheduling or appointments.
-- "Google Maps API": Use "[[WIDGET:Maps]]" for showing specific locations, addresses, or directions.
-- "Google Places API": Use "[[WIDGET:Places]]" for listing businesses, restaurants, or real estate listings.
-- "YouTube Data API": Use "[[WIDGET:YouTube]]" for showing relevant video content, tutorials, or property tours.
-- "Graph Widget": Use "[[WIDGET:Graph]]" for visualizing data like revenue, expenses, or stats.
-- "Forms Library": Use "[[WIDGET:Forms]]" for helping the user fill out transaction forms.
-- "Contacts Directory": Use "[[WIDGET:Contacts]]" for showing contacts.
-Only use one widget tag per response if necessary.`;
-        if (customEndpoints.length > 0) {
-          effectiveSystemInstruction += `\n[Custom APIs]: ${customEndpoints.join(", ")}.`;
-        }
-      }
-      if (config?.corpusData) {
-        effectiveSystemInstruction += `\n\n=== KNOWLEDGE BASE (CORPUS) ===\n${String(config.corpusData)}\n\n=== END KNOWLEDGE BASE ===\nUse this if relevant.`;
-      }
-      const chatHistory = history.slice(-15).map((msg: {role?: string; text?: string}) => ({
-        role: msg.role ?? "user",
-        parts: [{text: msg.text ?? ""}],
-      }));
-      const chat = ai.chats.create({
-        model: "gemini-2.5-flash",
-        history: chatHistory,
-        config: {systemInstruction: effectiveSystemInstruction, temperature: 0.7},
-      });
-      const result = await chat.sendMessage({message: newMessage});
-      res.status(200).json({ok: true, text: result.text ?? "No response generated."});
-      return;
-    }
 
     if (action === "suggestions") {
       const lastUserMessage = String(req.body?.lastUserMessage ?? "");
@@ -287,6 +364,34 @@ Respond in JSON format with: text, optional navHint, optional isCorrect.`,
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     logger.error("geminiProxy failed", {message});
+    res.status(500).json({ok: false, error: message});
+    return;
+  }
+});
+
+export const validateFormSchema = onRequest(async (req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+  res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Content-Type");
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return;
+  }
+  if (req.method !== "POST") {
+    res.status(405).json({ok: false, error: "Use POST"});
+    return;
+  }
+
+  try {
+    const def = req.body?.tableDefinition as SchemaTableDefinition;
+    const errors = validateSchemaTableDefinition(def ?? {});
+    res.status(200).json({
+      ok: errors.length === 0,
+      errors,
+    });
+    return;
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
     res.status(500).json({ok: false, error: message});
     return;
   }

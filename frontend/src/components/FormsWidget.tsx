@@ -1,7 +1,9 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, Check, FileText, Maximize2, Minimize2, RefreshCw, Plus, Minus, Calendar, Clock, MapPin, Image as ImageIcon, PenTool, DollarSign, Percent, Link, Mail, Phone, Video, MousePointer, Palette, Search, Hash, Layout, Save, X, Scroll, ArrowUpDown, ChevronDown, ChevronUp, HelpCircle } from 'lucide-react';
-import { FieldDef, MesopType } from '../types';
+import { EnumOption, FieldDef, MesopType } from '../types';
+import { useEnumCatalog } from '../context/EnumCatalogContext';
+import { evaluateShowIfExpression, resolveFieldSelectOptions } from '../services/formLogic';
 
 interface FormsWidgetProps {
   onExpand?: () => void;
@@ -25,12 +27,13 @@ interface MesopFieldProps {
   label: string;
   value: any;
   onChange: (val: any) => void;
-  options?: string[];
+  options?: EnumOption[];
   readOnly?: boolean;
   placeholder?: string;
   actionButton?: React.ReactNode;
   description?: string;
   className?: string;
+  onActivate?: () => void;
 }
 
 // --- COMPONENT GALLERY SCHEMA (Showcases all types) ---
@@ -152,7 +155,7 @@ const FloatingLabel = ({ label, active, error, description }: { label: string, a
 
 interface EnumPickerProps {
   label: string;
-  options: string[];
+  options: EnumOption[];
   value: any;
   onChange: (val: any) => void;
   onClose: () => void;
@@ -174,21 +177,20 @@ const EnumPicker: React.FC<EnumPickerProps> = ({ label, options = [], value, onC
 
   const [selected, setSelected] = useState<string[]>(parseValue(value));
 
-  const filteredOptions = options.filter(opt =>
-    opt.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredOptions = options.filter((opt) =>
+    opt.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    opt.value.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const toggleOption = (opt: string) => {
+  const toggleOption = (optValue: string) => {
     if (multi) {
-      if (selected.includes(opt)) {
-        setSelected(selected.filter(s => s !== opt));
+      if (selected.includes(optValue)) {
+        setSelected(selected.filter((s) => s !== optValue));
       } else {
-        setSelected([...selected, opt]);
+        setSelected([...selected, optValue]);
       }
     } else {
-      // Single Select - Toggle behavior: if clicking selected, don't deselect, just keep it. 
-      // Or deselect if needed. Standard select usually just selects.
-      setSelected([opt]);
+      setSelected([optValue]);
     }
   };
 
@@ -220,12 +222,12 @@ const EnumPicker: React.FC<EnumPickerProps> = ({ label, options = [], value, onC
 
       {/* List */}
       <div className="flex-1 overflow-y-auto bg-white pb-20">
-        {filteredOptions.map(opt => {
-          const isSelected = selected.includes(opt);
+        {filteredOptions.map((opt) => {
+          const isSelected = selected.includes(opt.value);
           return (
             <div
-              key={opt}
-              onClick={() => toggleOption(opt)}
+              key={opt.value}
+              onClick={() => toggleOption(opt.value)}
               className="flex items-center gap-4 p-4 hover:bg-gray-50 cursor-pointer transition-colors group"
             >
               {multi ? (
@@ -239,7 +241,7 @@ const EnumPicker: React.FC<EnumPickerProps> = ({ label, options = [], value, onC
                   {isSelected && <div className="w-3 h-3 bg-[#141D84] rounded-full" />}
                 </div>
               )}
-              <span className={`text-base ${isSelected ? 'font-semibold text-gray-900' : 'text-gray-700'}`}>{opt}</span>
+              <span className={`text-base ${isSelected ? 'font-semibold text-gray-900' : 'text-gray-700'}`}>{opt.label}</span>
             </div>
           )
         })}
@@ -267,11 +269,12 @@ const EnumPicker: React.FC<EnumPickerProps> = ({ label, options = [], value, onC
   );
 };
 
-export const MesopField: React.FC<MesopFieldProps> = ({ type, label, value, onChange, options, readOnly, placeholder, actionButton, description, className }) => {
+export const MesopField: React.FC<MesopFieldProps> = ({ type, label, value, onChange, options, readOnly, placeholder, actionButton, description, className, onActivate }) => {
   const [isFocused, setIsFocused] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const hasValue = value !== '' && value !== null && value !== undefined && (Array.isArray(value) ? value.length > 0 : true);
   const isActive = isFocused || hasValue || !!placeholder;
+  const activate = () => onActivate?.();
 
   const handleBlur = () => {
     setIsFocused(false);
@@ -314,14 +317,14 @@ export const MesopField: React.FC<MesopFieldProps> = ({ type, label, value, onCh
     };
 
     return (
-      <div className={containerClass} onClick={(e) => e.stopPropagation()}>
+      <div className={containerClass} onClick={(e) => e.stopPropagation()} onMouseDownCapture={activate}>
         <div className="relative">
           <input
             type={inputType}
             value={value || ''}
             onChange={(e) => { setError(null); onChange(e.target.value); }}
             onKeyDown={handleKeyDown}
-            onFocus={() => setIsFocused(true)}
+            onFocus={() => { activate(); setIsFocused(true); }}
             onBlur={handleBlur}
             readOnly={readOnly || ['ChangeTimestamp', 'App'].includes(type)}
             placeholder=" "
@@ -419,7 +422,7 @@ export const MesopField: React.FC<MesopFieldProps> = ({ type, label, value, onCh
     };
 
     return (
-      <div className={containerClass} onClick={(e) => e.stopPropagation()}>
+      <div className={containerClass} onClick={(e) => e.stopPropagation()} onMouseDownCapture={activate}>
         <div className={`
           relative flex items-center w-full border rounded transition-all bg-white
           ${error ? 'border-red-500 border-2' : isFocused ? 'border-[#1a1a1a] border-2' : 'border-[#1a1a1a]'}
@@ -433,7 +436,7 @@ export const MesopField: React.FC<MesopFieldProps> = ({ type, label, value, onCh
             value={getDisplayValue()}
             onChange={handleNumericChange}
             onKeyDown={handleKeyDown}
-            onFocus={() => setIsFocused(true)}
+            onFocus={() => { activate(); setIsFocused(true); }}
             onBlur={handleNumericBlur}
             readOnly={readOnly || type === 'ChangeCounter'}
             placeholder=" "
@@ -461,12 +464,12 @@ export const MesopField: React.FC<MesopFieldProps> = ({ type, label, value, onCh
   // MESOP Style: Long text / textarea field
   if (type === 'LongText') {
     return (
-      <div className={containerClass} onClick={(e) => e.stopPropagation()}>
+      <div className={containerClass} onClick={(e) => e.stopPropagation()} onMouseDownCapture={activate}>
         <div className="relative">
           <textarea
             value={value || ''}
             onChange={(e) => onChange(e.target.value)}
-            onFocus={() => setIsFocused(true)}
+            onFocus={() => { activate(); setIsFocused(true); }}
             onBlur={() => setIsFocused(false)}
             rows={3}
             placeholder=" "
@@ -494,14 +497,14 @@ export const MesopField: React.FC<MesopFieldProps> = ({ type, label, value, onCh
     };
 
     return (
-      <div className={containerClass} onClick={(e) => e.stopPropagation()}>
+      <div className={containerClass} onClick={(e) => e.stopPropagation()} onMouseDownCapture={activate}>
         <div className="relative">
           <input
             type={type === 'DateTime' ? 'datetime-local' : type === 'Time' ? 'time' : 'date'}
             value={value || ''}
             onChange={(e) => onChange(e.target.value)}
             onKeyDown={handleKeyDown}
-            onFocus={() => setIsFocused(true)}
+            onFocus={() => { activate(); setIsFocused(true); }}
             onBlur={() => setIsFocused(false)}
             readOnly={readOnly}
             className={`
@@ -523,11 +526,19 @@ export const MesopField: React.FC<MesopFieldProps> = ({ type, label, value, onCh
   // MESOP Style: Enum/EnumList/Ref dropdown fields
   if (['Enum', 'EnumList', 'Ref'].includes(type)) {
     const [isPickerOpen, setPickerOpen] = useState(false);
+    const optionList = options || [];
+    const valueToLabel = useMemo(() => {
+      const map = new Map<string, string>();
+      optionList.forEach((opt) => map.set(String(opt.value), String(opt.label)));
+      return map;
+    }, [optionList]);
 
     // Display value logic
     let displayValue = value;
     if (Array.isArray(value)) {
-      displayValue = value.join(', ');
+      displayValue = value.map((item) => valueToLabel.get(String(item)) || String(item)).join(', ');
+    } else if (value !== null && value !== undefined && value !== '') {
+      displayValue = valueToLabel.get(String(value)) || String(value);
     }
 
     return (
@@ -557,7 +568,7 @@ export const MesopField: React.FC<MesopFieldProps> = ({ type, label, value, onCh
             <div className="w-full max-w-md bg-white rounded-xl shadow-2xl overflow-hidden max-h-[70vh] flex flex-col relative z-10 animate-in zoom-in-95 duration-200">
               <EnumPicker
                 label={label}
-                options={options || []}
+                options={optionList}
                 value={value}
                 onChange={(val: any) => { onChange(val); }}
                 onClose={() => setPickerOpen(false)}
@@ -573,7 +584,7 @@ export const MesopField: React.FC<MesopFieldProps> = ({ type, label, value, onCh
   // MESOP Style: Yes/No toggle field
   if (type === 'Yes/No') {
     return (
-      <div className={containerClass} onClick={(e) => e.stopPropagation()}>
+      <div className={containerClass} onClick={(e) => e.stopPropagation()} onMouseDownCapture={activate}>
         <div className="relative border border-[#1a1a1a] rounded bg-white px-3 py-3 flex items-center justify-between">
           <MesopLabel label={label} description={description} />
           <button
@@ -598,7 +609,7 @@ export const MesopField: React.FC<MesopFieldProps> = ({ type, label, value, onCh
   // MESOP Style: Color picker field
   if (type === 'Color') {
     return (
-      <div className={containerClass} onClick={(e) => e.stopPropagation()}>
+      <div className={containerClass} onClick={(e) => e.stopPropagation()} onMouseDownCapture={activate}>
         <div className="relative">
           <div className={`
               flex items-center border border-[#1a1a1a] rounded overflow-hidden p-1.5 gap-2 bg-white 
@@ -635,7 +646,7 @@ export const MesopField: React.FC<MesopFieldProps> = ({ type, label, value, onCh
     if (['Image', 'Thumbnail'].includes(type)) Icon = ImageIcon;
     if (type === 'Video') Icon = Video;
     return (
-      <div className={containerClass} onClick={(e) => e.stopPropagation()}>
+      <div className={containerClass} onClick={(e) => e.stopPropagation()} onMouseDownCapture={activate}>
         <div className="relative">
           <div className={`
             border border-[#1a1a1a] rounded bg-white px-3 py-3
@@ -667,7 +678,7 @@ export const MesopField: React.FC<MesopFieldProps> = ({ type, label, value, onCh
   // MESOP Style: Signature/Drawing fields
   if (['Signature', 'Drawing'].includes(type)) {
     return (
-      <div className={containerClass} onClick={(e) => e.stopPropagation()}>
+      <div className={containerClass} onClick={(e) => e.stopPropagation()} onMouseDownCapture={activate}>
         <div className="relative">
           <div className={`
             border border-[#1a1a1a] rounded bg-white overflow-hidden
@@ -701,7 +712,7 @@ export const MesopField: React.FC<MesopFieldProps> = ({ type, label, value, onCh
   // MESOP Style: Progress bar field
   if (type === 'Progress') {
     return (
-      <div className={containerClass} onClick={(e) => e.stopPropagation()}>
+      <div className={containerClass} onClick={(e) => e.stopPropagation()} onMouseDownCapture={activate}>
         <div className="relative border border-[#1a1a1a] rounded bg-white px-3 py-3">
           <MesopLabel label={label} description={description} />
           <div className="flex items-center gap-3 mt-1">
@@ -742,14 +753,14 @@ export const MesopField: React.FC<MesopFieldProps> = ({ type, label, value, onCh
   };
 
   return (
-    <div className={containerClass} onClick={(e) => e.stopPropagation()}>
+    <div className={containerClass} onClick={(e) => e.stopPropagation()} onMouseDownCapture={activate}>
       <div className="relative">
         <input
           type="text"
           value={value || ''}
           onChange={(e) => { setError(null); onChange(e.target.value); }}
           onKeyDown={handleKeyDown}
-          onFocus={() => setIsFocused(true)}
+          onFocus={() => { activate(); setIsFocused(true); }}
           onBlur={handleBlur}
           readOnly={readOnly}
           placeholder=" "
@@ -781,6 +792,7 @@ export const FormsWidget: React.FC<FormsWidgetProps> = ({
   isFullScreen,
   firstStepTitle
 }) => {
+  const { getSelectOptionsForCategory } = useEnumCatalog();
   const [currentStep, setCurrentStep] = useState(1);
   const stepperRef = useRef<HTMLDivElement>(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
@@ -792,6 +804,8 @@ export const FormsWidget: React.FC<FormsWidgetProps> = ({
   const [viewMode, setViewMode] = useState<'wizard' | 'scroll'>('wizard');
   const [expandedSections, setExpandedSections] = useState<Record<number, boolean>>({});
   const [sectionSort, setSectionSort] = useState<Record<number, 'default' | 'az'>>({});
+  const [activeField, setActiveField] = useState<string | null>(null);
+  const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({});
 
   // Determine schema to use: provided schema OR the default Component Gallery
   const activeSchema = schema || COMPREHENSIVE_EXAMPLE_SCHEMA;
@@ -852,45 +866,33 @@ export const FormsWidget: React.FC<FormsWidgetProps> = ({
     });
   };
 
-  const evaluateShowIf = (showIf: string | undefined): boolean => {
-    if (!showIf) return true;
-    try {
-      const evaluator = new Function('data', `return Boolean(${showIf});`);
-      return Boolean(evaluator(genericFormData || {}));
-    } catch (error) {
-      console.warn('[FormsWidget] showIf evaluation failed:', showIf, error);
-      return true;
-    }
-  };
-
-  const resolveDynamicOptions = (field: FieldDef): string[] => {
-    if (!field.optionsSourceField || !field.optionsByValue) {
-      return field.options || [];
-    }
-
-    const selectedValue = genericFormData?.[field.optionsSourceField];
-    if (!selectedValue) return [];
-
-    const selectedText = String(selectedValue).trim().toLowerCase();
-    const entries = Object.entries(field.optionsByValue);
-
-    const exact = entries.find(([key]) => key.toLowerCase() === selectedText);
-    if (exact) return exact[1];
-
-    const fuzzy = entries.find(([key]) => {
-      const normalizedKey = key.toLowerCase();
-      return normalizedKey.includes(selectedText) || selectedText.includes(normalizedKey);
+  const markFieldInteraction = (fieldName: string) => {
+    setActiveField(fieldName);
+    setTouchedFields((prev) => {
+      if (prev[fieldName]) return prev;
+      return { ...prev, [fieldName]: true };
     });
-    if (fuzzy) return fuzzy[1];
-
-    return [];
   };
 
-  const getVisibleFields = (fields: FieldDef[]) => fields.filter((field) => !field.hidden && evaluateShowIf(field.showIf));
+  const evaluateShowIf = (field: FieldDef): boolean => {
+    return evaluateShowIfExpression(
+      field.showIf,
+      field.showIfJson as Record<string, unknown> | undefined,
+      genericFormData || {},
+      { activeField, touched: touchedFields },
+      'FormsWidget'
+    );
+  };
+
+  const resolveDynamicOptions = (field: FieldDef): EnumOption[] => {
+    return resolveFieldSelectOptions(field, genericFormData || {}, getSelectOptionsForCategory);
+  };
+
+  const getVisibleFields = (fields: FieldDef[]) => fields.filter((field) => !field.hidden && evaluateShowIf(field));
 
   const visibleSteps = useMemo(
     () => steps.filter((step) => getVisibleFields(step.fields).length > 0),
-    [steps, genericFormData]
+    [steps, genericFormData, activeField, touchedFields]
   );
 
   useEffect(() => {
@@ -998,6 +1000,7 @@ export const FormsWidget: React.FC<FormsWidgetProps> = ({
                   label={field.label}
                   value={genericFormData[field.name]}
                   onChange={(v) => updateField(field.name, v)}
+                  onActivate={() => markFieldInteraction(field.name)}
                   options={resolveDynamicOptions(field)}
                   readOnly={readOnly || field.readOnly}
                   placeholder={field.placeholder}
@@ -1045,6 +1048,7 @@ export const FormsWidget: React.FC<FormsWidgetProps> = ({
                             label={field.label}
                             value={genericFormData[field.name]}
                             onChange={(v) => updateField(field.name, v)}
+                            onActivate={() => markFieldInteraction(field.name)}
                             options={resolveDynamicOptions(field)}
                             readOnly={readOnly || field.readOnly}
                             placeholder={field.placeholder}

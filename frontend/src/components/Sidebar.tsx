@@ -4,6 +4,7 @@ import React, { useRef, useState } from 'react';
 import { AppConfig, Agent, AVAILABLE_TOOLS, TargetTool, TableDefinition, FieldDef, MesopType, AVAILABLE_VOICES } from '../types';
 import { Settings, Upload, FileText, Trash2, Wrench, Database, UserCog, Plus, X, ExternalLink, Camera, Link as LinkIcon, Table, Download, Check, HardDrive, Volume2, Play, Loader2 } from 'lucide-react';
 import { textToSpeech } from '../services/geminiService';
+import { coerceTableDefinition, validateTableDefinition } from '../services/tableSchema';
 
 interface SidebarProps {
   config: AppConfig;
@@ -75,21 +76,24 @@ export const Sidebar: React.FC<SidebarProps> = ({ config, setConfig, currentAgen
                    const json = JSON.parse(text);
                    // Expecting format: { id, name, schema: [], ... } or just Schema []
                    // For robustness, let's assume if array, it's schema, if object, it's full def
-                   let newDef: TableDefinition;
-                   
-                   if (Array.isArray(json)) {
-                        newDef = {
-                            id: selectedTableId,
-                            name: activeTableDef?.name || 'New Table',
-                            schema: json,
-                            keyField: activeTableDef?.keyField || 'id',
-                            labelField: activeTableDef?.labelField || 'name'
-                        };
-                   } else {
-                        newDef = {
-                            ...activeTableDef, // Fallback
-                            ...json
-                        };
+                   let newDef: TableDefinition = coerceTableDefinition(
+                     json,
+                     selectedTableId,
+                     activeTableDef?.name || 'New Table'
+                   );
+                   newDef = {
+                     ...activeTableDef,
+                     ...newDef,
+                     id: newDef.id || selectedTableId,
+                     name: newDef.name || activeTableDef?.name || 'New Table',
+                     keyField: newDef.keyField || activeTableDef?.keyField || 'id',
+                     labelField: newDef.labelField || activeTableDef?.labelField || 'name',
+                   };
+
+                   const validation = validateTableDefinition(newDef);
+                   if (!validation.ok) {
+                      alert(`Table definition has errors:\n- ${validation.errors.join('\n- ')}`);
+                      return;
                    }
                    
                    setConfig(prev => ({
@@ -122,6 +126,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ config, setConfig, currentAgen
                         keyField: activeTableDef?.keyField || 'id',
                         labelField: activeTableDef?.labelField || 'name'
                    };
+
+                   const validation = validateTableDefinition(newDef);
+                   if (!validation.ok) {
+                      alert(`Table definition has errors:\n- ${validation.errors.join('\n- ')}`);
+                      return;
+                   }
                    
                    setConfig(prev => ({
                        ...prev,

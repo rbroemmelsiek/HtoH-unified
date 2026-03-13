@@ -477,6 +477,8 @@ function App() {
   };
 
   // Handlers
+  const [sessionId, setSessionId] = useState<string | undefined>(undefined);
+
   const handleSendMessage = async (text: string = inputValue) => {
     if (!text.trim()) return;
 
@@ -557,7 +559,8 @@ function App() {
     setSuggestions([]);
 
     try {
-      const responseText = await sendMessageToGemini(messages, text, config, currentAgent);
+      const {text: responseText, sessionId: newSessionId} = await sendMessageToGemini(messages, text, config, currentAgent, sessionId);
+      if (newSessionId) setSessionId(newSessionId);
 
       const botMessage: Message = {
         id: (Date.now() + 1).toString(),

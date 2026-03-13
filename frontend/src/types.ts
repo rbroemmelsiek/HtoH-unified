@@ -27,7 +27,11 @@ export interface FieldDef {
   label: string;
   type: MesopType;
   options?: string[];
+  enumCategory?: string;
+  enumValueSource?: 'displayName' | 'enumValue' | 'uniqueId';
   showIf?: string;
+  showIfJson?: Record<string, unknown>;
+  optionsCategorySourceField?: string;
   optionsSourceField?: string;
   optionsByValue?: Record<string, string[]>;
   readOnly?: boolean;
@@ -35,6 +39,11 @@ export interface FieldDef {
   defaultValue?: any;
   hidden?: boolean;
   description?: string; // Tooltip help text
+}
+
+export interface EnumOption {
+  label: string;
+  value: string;
 }
 
 export interface TableDefinition {

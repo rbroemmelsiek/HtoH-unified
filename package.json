@@ -23,5 +23,8 @@
     "ethics-advisor"
   ],
   "author": "HomeToHome Team",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "@google/gemini-cli-core": "^0.33.1"
+  }
 }
