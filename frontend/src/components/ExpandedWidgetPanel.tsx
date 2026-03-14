@@ -55,6 +55,7 @@ export const ExpandedWidgetPanel: React.FC<ExpandedWidgetPanelProps> = ({ type, 
   const isFullBleed = type === 'contacts' || type === 'forms' || type === 'calendar' || type === 'plan' || type === 'academy' || type === 'academy_hub' || type === 'kindle';
   // Hide the generic header if the widget provides its own controls (contacts/forms/calendar/plan)
   const showHeader = type !== 'contacts' && type !== 'forms' && type !== 'calendar' && type !== 'plan' && type !== 'academy' && type !== 'academy_hub' && type !== 'kindle';
+  const transactionsTable = config?.tableDefinitions.find((t) => t.id === 'transactions');
 
   return (
     <div className={`
@@ -161,6 +162,9 @@ export const ExpandedWidgetPanel: React.FC<ExpandedWidgetPanelProps> = ({ type, 
              <div className="w-full h-full">
                 <FormsWidget 
                   corpusData={config?.corpusData} 
+                  schema={transactionsTable?.schema}
+                  title={transactionsTable?.name || 'Transactions'}
+                  firstStepTitle="Transaction Type"
                   onExpand={undefined}
                   onClose={onClose}
                   onToggleFullScreen={() => setIsFullScreen(!isFullScreen)}

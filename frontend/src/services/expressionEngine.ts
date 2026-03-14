@@ -211,9 +211,16 @@ function splitByOperator(input: string, operator: '&&' | '||'): string[] {
   return parts;
 }
 
+const compilationCache = new Map<string, JsonRule | null>();
+
 export function compileShowIfToJsonRule(expression?: string | null): JsonRule | null {
   if (!expression) return null;
-  return compileInternal(expression);
+  const cached = compilationCache.get(expression);
+  if (cached !== undefined) return cached;
+
+  const compiled = compileInternal(expression);
+  compilationCache.set(expression, compiled);
+  return compiled;
 }
 
 function resolveVar(path: string, ctx: EvalContext): unknown {

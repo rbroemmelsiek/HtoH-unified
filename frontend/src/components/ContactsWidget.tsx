@@ -1,10 +1,12 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Star, Plus, Phone, Mail, User, Briefcase, Search, Check, Users, HardHat, Shield, Maximize2, Minimize2, Table, LayoutGrid, ArrowLeft, ArrowRight, X, Edit3, Filter, ChevronRight, SlidersHorizontal, GalleryHorizontalEnd } from 'lucide-react';
 import { FormsWidget } from './FormsWidget';
 import { FieldDef, TableDefinition } from '../types';
 import { useAuth } from '../context/AuthContext';
+import { useEnumCatalog } from '../context/EnumCatalogContext';
 import planGateway from '../services/planGateway/planGateway';
+import { resolveFieldSelectOptions } from '../services/formLogic';
 import {
   ContactRecord,
   getContactDirectory,
@@ -29,8 +31,43 @@ interface ActiveFilter {
   id: string;
   field: string;
   label: string;
-  value: string;
+  value: string | string[];
+  displayValue?: string;
 }
+
+const mapServiceToCategory = (service?: unknown): ContactRecord['category'] => {
+  const value = String(service || '').toLowerCase();
+  if (value.includes('vendor')) return 'vendor';
+  if (value.includes('broker') || value.includes('lender') || value.includes('internal') || value.includes('agency')) return 'provider';
+  return 'party';
+};
+
+const buildCreateContactDraft = (): ContactRecord => {
+  const generatedId = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `contact_${Date.now()}`;
+  return {
+    id: generatedId,
+    Client_ID: generatedId,
+    ContactID: generatedId,
+    name: '',
+    role: '',
+    company: '',
+    phone: '',
+    email: '',
+    category: 'party',
+    isFavorite: false,
+    imageUrl: 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?auto=format&fit=crop&w=600&q=80',
+    FirstName: '',
+    LastName: '',
+    Mobile: '',
+    Email: '',
+    ServicesAndProviders: '',
+    notes: '',
+    linkedPlanId: null,
+    linkedOwnerId: 'self',
+  };
+};
 
 const DEFAULT_CONTACTS_SCHEMA: FieldDef[] = [
   { name: 'name', label: 'Full Name', type: 'Name' },
@@ -59,6 +96,7 @@ export const ContactsWidget: React.FC<ContactsWidgetProps> = ({
   onToggleFullScreen,
   isFullScreen
 }) => {
+  const { getSelectOptionsForCategory } = useEnumCatalog();
   const { user, userProfile, setCurrentPlanId } = useAuth();
   const [activeTab, setActiveTab] = useState<'all' | 'party' | 'provider' | 'vendor'>('all');
   const [viewMode, setViewMode] = useState<'deck' | 'table' | 'carousel'>('carousel');
@@ -69,6 +107,7 @@ export const ContactsWidget: React.FC<ContactsWidgetProps> = ({
   const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
   const [selectedFilterField, setSelectedFilterField] = useState<FieldDef | null>(null);
   const [newFilterValue, setNewFilterValue] = useState('');
+  const [newFilterEnumValue, setNewFilterEnumValue] = useState('');
 
   // Data State
   const [contacts, setContacts] = useState<ContactRecord[]>(() => getContactDirectory());
@@ -77,6 +116,8 @@ export const ContactsWidget: React.FC<ContactsWidgetProps> = ({
   // Selection / Editing State
   const [selectedContactId, setSelectedContactId] = useState<string | null>(initialSelectedId || null);
   const [isEditing, setIsEditing] = useState(false);
+  const [isCreateMode, setIsCreateMode] = useState(false);
+  const [createDraft, setCreateDraft] = useState<ContactRecord | null>(null);
 
   // Carousel State
   const [carouselIndex, setCarouselIndex] = useState(0);
@@ -221,11 +262,27 @@ export const ContactsWidget: React.FC<ContactsWidgetProps> = ({
       matchesFilters = activeFilters.every(f => {
         const val = c[f.field as keyof ContactRecord];
         if (val === undefined || val === null) return false;
-        return String(val).toLowerCase().includes(f.value.toLowerCase());
+        if (Array.isArray(f.value)) {
+          const selectedValues = f.value.map((item) => String(item).toLowerCase());
+          if (Array.isArray(val)) {
+            const recordValues = val.map((item) => String(item).toLowerCase());
+            return selectedValues.every((item) => recordValues.includes(item));
+          }
+          return selectedValues.includes(String(val).toLowerCase());
+        }
+        if (Array.isArray(val)) {
+          return val.map((item) => String(item).toLowerCase()).includes(String(f.value).toLowerCase());
+        }
+        return String(val).toLowerCase().includes(String(f.value).toLowerCase());
       });
     }
     return matchesTab && matchesSearch && matchesFilters;
   });
+
+  const selectedFieldOptions = useMemo(() => {
+    if (!selectedFilterField) return [];
+    return resolveFieldSelectOptions(selectedFilterField, {}, getSelectOptionsForCategory);
+  }, [selectedFilterField, getSelectOptionsForCategory]);
 
   // Sync Carousel Index with filtered results or selection
   useEffect(() => {
@@ -324,6 +381,25 @@ export const ContactsWidget: React.FC<ContactsWidgetProps> = ({
 
   const selectedContact = contacts.find(c => c.id === selectedContactId);
 
+  const closeForm = () => {
+    setIsEditing(false);
+    setIsCreateMode(false);
+    setCreateDraft(null);
+  };
+
+  const openCreateContact = () => {
+    setCreateDraft(buildCreateContactDraft());
+    setIsCreateMode(true);
+    setIsEditing(true);
+  };
+
+  const openEditContact = () => {
+    if (!selectedContact) return;
+    setIsCreateMode(false);
+    setCreateDraft(null);
+    setIsEditing(true);
+  };
+
   const handleRowClick = (id: string) => {
     if (!isExpanded && onExpand) {
       onExpand(id);
@@ -337,24 +413,42 @@ export const ContactsWidget: React.FC<ContactsWidgetProps> = ({
   };
 
   const handleSaveContact = (updatedData: any) => {
-    const nextRecord: ContactRecord = { ...updatedData };
+    const existingId = String(updatedData.id || updatedData.Client_ID || updatedData.ContactID || '').trim();
+    const generatedId = existingId || (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `contact_${Date.now()}`);
+    const nextRecord: ContactRecord = {
+      ...updatedData,
+      id: generatedId,
+      Client_ID: generatedId,
+      ContactID: generatedId,
+      isFavorite: Boolean(updatedData.isFavorite),
+      linkedPlanId: (updatedData.linkedPlanId as string | null | undefined) ?? null,
+      linkedOwnerId: (updatedData.linkedOwnerId as string | null | undefined) ?? 'self',
+    };
 
-    const first = String(updatedData.FirstName || '').trim();
-    const last = String(updatedData.LastName || '').trim();
+    const first = String(nextRecord.FirstName || '').trim();
+    const last = String(nextRecord.LastName || '').trim();
     const combinedName = `${first} ${last}`.trim();
-    if (combinedName) {
-      nextRecord.name = combinedName;
+    nextRecord.name = combinedName || String(nextRecord.name || '').trim() || 'New Contact';
+
+    if (nextRecord.Mobile) nextRecord.phone = String(nextRecord.Mobile);
+    if (nextRecord.Email) nextRecord.email = String(nextRecord.Email);
+    if (nextRecord.CompanyName) nextRecord.company = String(nextRecord.CompanyName);
+    if (nextRecord.Photo) nextRecord.imageUrl = String(nextRecord.Photo);
+    if (nextRecord.HomeAddress) nextRecord.address = String(nextRecord.HomeAddress);
+    if (nextRecord.AdditionalInfo) nextRecord.notes = String(nextRecord.AdditionalInfo);
+    if (!nextRecord.imageUrl) {
+      nextRecord.imageUrl = 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?auto=format&fit=crop&w=600&q=80';
     }
+    nextRecord.category = mapServiceToCategory(nextRecord.ServicesAndProviders);
 
-    if (updatedData.Mobile) nextRecord.phone = String(updatedData.Mobile);
-    if (updatedData.Email) nextRecord.email = String(updatedData.Email);
-    if (updatedData.CompanyName) nextRecord.company = String(updatedData.CompanyName);
-    if (updatedData.Photo) nextRecord.imageUrl = String(updatedData.Photo);
-    if (updatedData.HomeAddress) nextRecord.address = String(updatedData.HomeAddress);
-    if (updatedData.AdditionalInfo) nextRecord.notes = String(updatedData.AdditionalInfo);
-
-    setContacts(prev => prev.map(c => c.id === nextRecord.id ? nextRecord : c));
-    setIsEditing(false);
+    setContacts(prev => {
+      if (isCreateMode) return [nextRecord, ...prev];
+      return prev.map(c => c.id === nextRecord.id ? nextRecord : c);
+    });
+    setSelectedContactId(nextRecord.id);
+    closeForm();
   };
 
   const resolveOwnerId = (contact: ContactRecord): string | undefined => {
@@ -400,16 +494,41 @@ export const ContactsWidget: React.FC<ContactsWidgetProps> = ({
   };
 
   const addFilter = () => {
-    if (selectedFilterField && newFilterValue) {
-      setActiveFilters(prev => [...prev, { id: Date.now().toString(), field: selectedFilterField.name, label: selectedFilterField.label, value: newFilterValue }]);
-      setNewFilterValue('');
-      setSelectedFilterField(null);
-    }
+    if (!selectedFilterField) return;
+
+    const isEnumLike = ['Enum', 'EnumList', 'Ref', 'Yes/No'].includes(selectedFilterField.type);
+    if (isEnumLike && !newFilterEnumValue) return;
+    if (!isEnumLike && !newFilterValue) return;
+
+    const selectedOption = selectedFieldOptions.find((opt) => opt.value === newFilterEnumValue);
+    const payload: ActiveFilter = {
+      id: Date.now().toString(),
+      field: selectedFilterField.name,
+      label: selectedFilterField.label,
+      value: isEnumLike ? newFilterEnumValue : newFilterValue,
+      displayValue: isEnumLike ? (selectedOption?.label || newFilterEnumValue) : newFilterValue,
+    };
+    setActiveFilters(prev => [...prev, payload]);
+    setNewFilterValue('');
+    setNewFilterEnumValue('');
+    setSelectedFilterField(null);
   };
 
   const removeFilter = (id: string) => {
     setActiveFilters(prev => prev.filter(f => f.id !== id));
   };
+
+  useEffect(() => {
+    if (!isFilterOpen) return;
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsFilterOpen(false);
+        setSelectedFilterField(null);
+      }
+    };
+    window.addEventListener('keydown', onEscape);
+    return () => window.removeEventListener('keydown', onEscape);
+  }, [isFilterOpen]);
 
   const toggleViewMode = () => {
     if (viewMode === 'deck') setViewMode('table');
@@ -456,11 +575,19 @@ export const ContactsWidget: React.FC<ContactsWidgetProps> = ({
     </button>
   );
 
-  if (isEditing && selectedContact) {
+  const formRecord = isCreateMode ? createDraft : selectedContact;
+  if (isEditing && formRecord) {
     return (
-      <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
+      <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
         <div className="w-full max-w-lg h-[600px] shadow-2xl rounded-xl overflow-hidden bg-white">
-          <FormsWidget schema={schema} data={selectedContact} onSave={handleSaveContact} onCancel={() => setIsEditing(false)} title={`Edit ${selectedContact[labelField]}`} />
+          <FormsWidget
+            schema={schema}
+            data={formRecord}
+            onSave={handleSaveContact}
+            onCancel={closeForm}
+            title={isCreateMode ? 'Create Contact' : `Edit ${String(selectedContact?.[labelField] || 'Contact')}`}
+            firstStepTitle="About"
+          />
         </div>
       </div>
     );
@@ -485,7 +612,7 @@ export const ContactsWidget: React.FC<ContactsWidgetProps> = ({
           <div className="flex items-center gap-2">
             {isExpanded && (
               <button
-                onClick={() => setIsEditing(true)}
+                onClick={openEditContact}
                 className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/20 hover:bg-white/30 text-white text-sm font-medium transition-colors"
                 title="Edit Contact"
               >
@@ -541,7 +668,7 @@ export const ContactsWidget: React.FC<ContactsWidgetProps> = ({
                 </button>
                 {isExpanded && (
                   <button
-                    onClick={() => setIsEditing(true)}
+                    onClick={openEditContact}
                     className="flex-1 py-2.5 border border-gray-200 text-gray-700 bg-white rounded-lg font-bold text-sm hover:bg-gray-50 flex items-center justify-center gap-2 shadow-sm transition-transform active:scale-95"
                     title="Edit contact in Forms Wizard"
                   >
@@ -863,7 +990,7 @@ export const ContactsWidget: React.FC<ContactsWidgetProps> = ({
             <div className="flex items-center gap-1 text-xs font-bold text-[#141D84] mr-1"><Filter size={12} /><span>Filters</span></div>
             {activeFilters.map(filter => (
               <div key={filter.id} className="flex items-center gap-1 bg-indigo-50 text-indigo-700 text-xs px-2 py-1 rounded-full border border-indigo-100">
-                <span className="font-medium">{filter.label}:</span><span>{filter.value}</span>
+                <span className="font-medium">{filter.label}:</span><span>{filter.displayValue || String(filter.value)}</span>
                 <button onClick={() => removeFilter(filter.id)} className="ml-1 hover:text-red-500"><X size={12} /></button>
               </div>
             ))}
@@ -874,7 +1001,7 @@ export const ContactsWidget: React.FC<ContactsWidgetProps> = ({
         {/* Filters Tabs - Show even if expanded for list filtering */}
         <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 px-1">
           <TabButton id="all" label="All" icon={Users} />
-          <TabButton id="party" label="Parties" icon={User} />
+          <TabButton id="party" label="Clients" icon={User} />
           <TabButton id="provider" label="Services" icon={Briefcase} />
           <TabButton id="vendor" label="Vendors" icon={HardHat} />
         </div>
@@ -1006,6 +1133,13 @@ export const ContactsWidget: React.FC<ContactsWidgetProps> = ({
           <h3 className="font-bold text-lg tracking-wide text-white">{tableDef ? tableDef.name : 'Contacts Directory'}</h3>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={(e) => { e.stopPropagation(); openCreateContact(); }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#141D84] hover:bg-[#1a25a0] text-white text-xs font-semibold transition-colors shadow-sm"
+            title="Create Contact"
+          >
+            <Plus size={14} /> Create
+          </button>
           {onToggleFullScreen && (
             <button
               onClick={(e) => { e.stopPropagation(); onToggleFullScreen(); }}
@@ -1040,7 +1174,14 @@ export const ContactsWidget: React.FC<ContactsWidgetProps> = ({
       {isExpanded && (
         <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border-b border-gray-200 shrink-0">
           <button
-            onClick={() => setIsEditing(true)}
+            onClick={openCreateContact}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-colors bg-[#141D84] text-white hover:bg-[#1a25a0] shadow-sm"
+            title="Create Contact"
+          >
+            <Plus size={14} /> Create
+          </button>
+          <button
+            onClick={openEditContact}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${selectedContact ? 'bg-[#141D84] text-white hover:bg-[#1a25a0]' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
             disabled={!selectedContact}
             title="Edit Contact"
@@ -1104,6 +1245,15 @@ export const ContactsWidget: React.FC<ContactsWidgetProps> = ({
       )}
 
       {isFilterOpen && (
+        <>
+        <div
+          className="absolute inset-0 bg-black/20 z-30"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsFilterOpen(false);
+            setSelectedFilterField(null);
+          }}
+        />
         <div className="absolute inset-y-0 right-0 w-80 bg-white z-40 flex flex-col animate-in slide-in-from-right-10 font-sans shadow-2xl border-l border-gray-100">
           <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-white">
             <div className="flex items-center gap-2">
@@ -1118,21 +1268,40 @@ export const ContactsWidget: React.FC<ContactsWidgetProps> = ({
           <div className="flex-1 overflow-y-auto bg-white p-2">
             {selectedFilterField ? (
               <div className="p-2 space-y-4 animate-in slide-in-from-right-5">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Contains text</label>
-                  <input
-                    autoFocus
-                    type="text"
-                    value={newFilterValue}
-                    onChange={(e) => setNewFilterValue(e.target.value)}
-                    placeholder={`Enter value for ${selectedFilterField.label}`}
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#141D84] focus:border-[#141D84] outline-none bg-white text-gray-900"
-                  />
-                </div>
+                {['Enum', 'EnumList', 'Ref', 'Yes/No'].includes(selectedFilterField.type) ? (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Select value</label>
+                    <select
+                      autoFocus
+                      value={newFilterEnumValue}
+                      onChange={(e) => setNewFilterEnumValue(e.target.value)}
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#141D84] focus:border-[#141D84] outline-none bg-white text-gray-900"
+                    >
+                      <option value="">Choose an option</option>
+                      {selectedFieldOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Contains text</label>
+                    <input
+                      autoFocus
+                      type="text"
+                      value={newFilterValue}
+                      onChange={(e) => setNewFilterValue(e.target.value)}
+                      placeholder={`Enter value for ${selectedFilterField.label}`}
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#141D84] focus:border-[#141D84] outline-none bg-white text-gray-900"
+                    />
+                  </div>
+                )}
               </div>
             ) : (
-              schema.filter(f => !['SectionHeader', 'PageBreak', 'Image'].includes(f.type)).map(field => (
-                <div key={field.name} onClick={() => { setSelectedFilterField(field); setNewFilterValue(''); }} className="flex items-center justify-between p-3 border-b border-gray-50 hover:bg-gray-50 cursor-pointer transition-colors group rounded-lg mb-1">
+              schema.filter(f => !f.hidden && !['SectionHeader', 'PageBreak', 'Image'].includes(f.type)).map(field => (
+                <div key={field.name} onClick={() => { setSelectedFilterField(field); setNewFilterValue(''); setNewFilterEnumValue(''); }} className="flex items-center justify-between p-3 border-b border-gray-50 hover:bg-gray-50 cursor-pointer transition-colors group rounded-lg mb-1">
                   <div className="flex flex-col"><span className="text-sm font-medium text-gray-700">{field.label}</span></div>
                   <ChevronRight size={16} className="text-gray-300 group-hover:text-gray-600" />
                 </div>
@@ -1141,12 +1310,23 @@ export const ContactsWidget: React.FC<ContactsWidgetProps> = ({
           </div>
           <div className="p-4 border-t border-gray-100 flex justify-between items-center bg-gray-50">
             {selectedFilterField ? (
-              <button onClick={addFilter} disabled={!newFilterValue} className="w-full py-2 bg-[#141D84] text-white rounded-lg font-bold text-sm hover:bg-blue-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm">Apply Filter</button>
+              <button
+                onClick={addFilter}
+                disabled={
+                  ['Enum', 'EnumList', 'Ref', 'Yes/No'].includes(selectedFilterField.type)
+                    ? !newFilterEnumValue
+                    : !newFilterValue
+                }
+                className="w-full py-2 bg-[#141D84] text-white rounded-lg font-bold text-sm hover:bg-blue-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+              >
+                Apply Filter
+              </button>
             ) : (
               <><button onClick={(e) => { e.stopPropagation(); setActiveFilters([]); }} className="text-gray-500 font-medium text-sm hover:text-red-500">Clear</button><button onClick={(e) => { e.stopPropagation(); setIsFilterOpen(false); }} className="text-[#141D84] font-bold text-sm hover:underline">Done</button></>
             )}
           </div>
         </div>
+        </>
       )}
     </div>
   );

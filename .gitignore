@@ -42,3 +42,4 @@ coverage/
 *.zip
 *.tar.gz
 .tools/
+.tmp-schema-check/

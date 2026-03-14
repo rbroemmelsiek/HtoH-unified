@@ -18,6 +18,7 @@ import {
   getContactDirectory,
 } from './services/contactDirectory';
 import { CONTACTS_DIRECTORY_TABLE_DEF } from './services/contactDirectorySchema';
+import { TRANSACTIONS_TABLE_DEF } from './services/transactionsSchema';
 
 type ToolsMenuMode = 'main' | 'services' | 'transactional' | 'vendor';
 type AppView = 'dashboard' | 'academy' | 'help';
@@ -109,7 +110,7 @@ function App() {
   const [config, setConfig] = useState<AppConfig>({
     corpusData: '',
     corpusFileName: null,
-    tableDefinitions: [CONTACTS_DIRECTORY_TABLE_DEF],
+    tableDefinitions: [CONTACTS_DIRECTORY_TABLE_DEF, TRANSACTIONS_TABLE_DEF],
     maxFileSizeMB: 5 // Default 5MB
   });
 

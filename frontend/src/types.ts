@@ -20,7 +20,7 @@ export type MesopType =
   'Color' | 'Date' | 'DateTime' | 'Time' | 'Decimal' | 'Number' | 'Percent' | 
   'Price' | 'Progress' | 'Duration' | 'Email' | 'File' | 'Image' | 'LatLong' | 
   'LongText' | 'Name' | 'Phone' | 'Ref' | 'Signature' | 'Text' | 'Thumbnail' | 
-  'Url' | 'Video' | 'XY' | 'Yes/No' | 'Enum' | 'EnumList' | 'Drawing' | 'PageBreak' | 'SectionHeader';
+  'Url' | 'Video' | 'XY' | 'Yes/No' | 'Enum' | 'EnumList' | 'Drawing' | 'PageBreak' | 'SectionHeader' | 'Show';
 
 export interface FieldDef {
   name: string;
@@ -28,6 +28,7 @@ export interface FieldDef {
   type: MesopType;
   options?: string[];
   enumCategory?: string;
+  enumCategoryAliases?: string[];
   enumValueSource?: 'displayName' | 'enumValue' | 'uniqueId';
   showIf?: string;
   showIfJson?: Record<string, unknown>;
@@ -39,6 +40,11 @@ export interface FieldDef {
   defaultValue?: any;
   hidden?: boolean;
   description?: string; // Tooltip help text
+  required?: boolean;
+  isVirtual?: boolean;
+  formula?: string;
+  initialValue?: string;
+  validIf?: string;
 }
 
 export interface EnumOption {

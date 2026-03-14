@@ -13,6 +13,21 @@ import { ContactRecord } from './contactDirectory';
 
 const CONTACTS_COLLECTION = process.env.NEXT_PUBLIC_CONTACTS_COLLECTION || 'contacts';
 
+function stripUndefinedDeep<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return value.map((item) => stripUndefinedDeep(item)) as T;
+  }
+  if (value && typeof value === 'object') {
+    const cleaned: Record<string, unknown> = {};
+    Object.entries(value as Record<string, unknown>).forEach(([key, entry]) => {
+      if (entry === undefined) return;
+      cleaned[key] = stripUndefinedDeep(entry);
+    });
+    return cleaned as T;
+  }
+  return value;
+}
+
 const SAMPLE_CONTACTS_BASE: Array<Omit<ContactRecord, 'id' | 'linkedOwnerId'>> = [
   {
     name: 'Maya Brooks',
@@ -151,15 +166,16 @@ export async function upsertContactsForOwner(ownerId: string, contacts: ContactR
   contacts.forEach((contact) => {
     const docId = normalizeDocId(String(contact.id || crypto.randomUUID()));
     const ref = doc(db, CONTACTS_COLLECTION, docId);
+    const payload = stripUndefinedDeep({
+      ...contact,
+      id: docId,
+      ownerId,
+      updatedAt: serverTimestamp(),
+      createdAt: serverTimestamp(),
+    });
     batch.set(
       ref,
-      {
-        ...contact,
-        id: docId,
-        ownerId,
-        updatedAt: serverTimestamp(),
-        createdAt: serverTimestamp(),
-      },
+      payload,
       { merge: true }
     );
   });

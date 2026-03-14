@@ -34,6 +34,11 @@ interface MesopFieldProps {
   description?: string;
   className?: string;
   onActivate?: () => void;
+  tooltipId?: string;
+  activeTooltipId?: string | null;
+  onTooltipEnter?: (tooltipId: string) => void;
+  onTooltipLeave?: () => void;
+  tooltipAlign?: 'left' | 'right' | 'center';
 }
 
 // --- COMPONENT GALLERY SCHEMA (Showcases all types) ---
@@ -130,18 +135,55 @@ const formatPhoneNumber = (value: string) => {
   return value;
 };
 
+const formatPhoneInput = (value: string) => {
+  const cleaned = value.replace(/\D/g, '').slice(0, 10);
+  if (cleaned.length <= 3) return cleaned;
+  if (cleaned.length <= 6) return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3)}`;
+  return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
+};
+
 // MESOP Style: Label ALWAYS floats above the input field
-const MesopLabel = ({ label, error, description }: { label: string, error?: string | null, description?: string }) => (
-  <div className="absolute left-3 -top-2.5 px-1 bg-white pointer-events-none z-10 flex items-center gap-1 font-sans">
+const MesopLabel = ({
+  label,
+  error,
+  description,
+  tooltipId,
+  activeTooltipId,
+  onTooltipEnter,
+  onTooltipLeave,
+  tooltipAlign,
+}: {
+  label: string;
+  error?: string | null;
+  description?: string;
+  tooltipId?: string;
+  activeTooltipId?: string | null;
+  onTooltipEnter?: (tooltipId: string) => void;
+  onTooltipLeave?: () => void;
+  tooltipAlign?: 'left' | 'right' | 'center';
+}) => (
+  <div className="absolute left-3 -top-2.5 px-1 bg-white z-10 flex items-center gap-1 font-sans">
     <div className="absolute inset-0 bg-white h-[2px] top-[50%] -z-10 w-full"></div>
     <span className="text-xs font-medium text-[#202124] truncate max-w-[200px]">{label}</span>
     {error && <span className="text-[10px] font-normal text-red-500 ml-1">• {error}</span>}
     {description && (
-      <span className="pointer-events-auto group relative ml-1 cursor-help">
+      <span
+        className="pointer-events-auto relative ml-1 cursor-help"
+        onMouseEnter={() => tooltipId && onTooltipEnter?.(tooltipId)}
+        onMouseLeave={() => onTooltipLeave?.()}
+      >
         <HelpCircle size={10} className="text-gray-300 hover:text-[#141D84]" />
-        <div className="absolute left-0 bottom-full mb-1.5 w-48 z-50 bg-slate-800 text-white text-[10px] p-2 rounded shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity text-left leading-relaxed">
+        <div
+          className={`
+            absolute top-full mt-1.5 w-64 max-w-[calc(100vw-10px)] z-[7000]
+            bg-slate-800 text-white text-[10px] p-2.5 rounded-lg shadow-xl border border-slate-700
+            pointer-events-none transition-opacity text-left leading-relaxed whitespace-normal break-words
+            ${tooltipAlign === 'right' ? 'right-0 translate-x-0' : tooltipAlign === 'left' ? 'left-0 translate-x-0' : 'left-1/2 -translate-x-1/2'}
+            ${tooltipId && activeTooltipId === tooltipId ? 'opacity-100' : 'opacity-0'}
+          `}
+        >
           {description}
-          <div className="absolute -bottom-1 left-2 w-2 h-2 bg-slate-800 border-b border-r border-slate-700 transform rotate-45"></div>
+          <div className={`absolute -top-1 w-2 h-2 bg-slate-800 border-t border-l border-slate-700 transform rotate-45 ${tooltipAlign === 'right' ? 'right-4' : tooltipAlign === 'left' ? 'left-4' : 'left-1/2 -translate-x-1/2'}`}></div>
         </div>
       </span>
     )}
@@ -181,6 +223,12 @@ const EnumPicker: React.FC<EnumPickerProps> = ({ label, options = [], value, onC
     opt.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
     opt.value.toLowerCase().includes(searchTerm.toLowerCase())
   );
+  const normalizedSearch = searchTerm.trim();
+  const hasExactOption = options.some(
+    (opt) =>
+      opt.label.toLowerCase() === normalizedSearch.toLowerCase() ||
+      opt.value.toLowerCase() === normalizedSearch.toLowerCase()
+  );
 
   const toggleOption = (optValue: string) => {
     if (multi) {
@@ -214,7 +262,7 @@ const EnumPicker: React.FC<EnumPickerProps> = ({ label, options = [], value, onC
             placeholder="Search"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-3 pr-3 py-2.5 bg-white border border-gray-300 rounded-md text-base focus:border-[#141D84] outline-none transition-colors placeholder-gray-400 focus:ring-1 focus:ring-[#141D84]"
+            className="w-full pl-3 pr-3 py-2.5 bg-white border border-gray-300 rounded-md text-base text-gray-900 focus:border-[#141D84] outline-none transition-colors placeholder-gray-400 focus:ring-1 focus:ring-[#141D84]"
             autoFocus
           />
         </div>
@@ -228,7 +276,7 @@ const EnumPicker: React.FC<EnumPickerProps> = ({ label, options = [], value, onC
             <div
               key={opt.value}
               onClick={() => toggleOption(opt.value)}
-              className="flex items-center gap-4 p-4 hover:bg-gray-50 cursor-pointer transition-colors group"
+              className="flex items-start gap-4 p-4 hover:bg-gray-50 cursor-pointer transition-colors group"
             >
               {multi ? (
                 /* Checkbox for Multi */
@@ -241,12 +289,23 @@ const EnumPicker: React.FC<EnumPickerProps> = ({ label, options = [], value, onC
                   {isSelected && <div className="w-3 h-3 bg-[#141D84] rounded-full" />}
                 </div>
               )}
-              <span className={`text-base ${isSelected ? 'font-semibold text-gray-900' : 'text-gray-700'}`}>{opt.label}</span>
+              <span className={`text-base min-w-0 break-words whitespace-normal leading-snug ${isSelected ? 'font-semibold text-gray-900' : 'text-gray-700'}`}>{opt.label}</span>
             </div>
           )
         })}
         {filteredOptions.length === 0 && (
           <div className="p-8 text-center text-gray-400 text-sm">No options found</div>
+        )}
+        {multi && normalizedSearch && !hasExactOption && (
+          <div
+            onClick={() => toggleOption(normalizedSearch)}
+            className="flex items-center gap-4 p-4 border-t border-dashed border-gray-200 hover:bg-blue-50 cursor-pointer transition-colors"
+          >
+            <div className={`w-6 h-6 border-2 rounded flex items-center justify-center transition-all duration-200 ${selected.includes(normalizedSearch) ? 'bg-[#141D84] border-[#141D84]' : 'border-gray-400 bg-white'}`}>
+              {selected.includes(normalizedSearch) && <Check size={16} className="text-white" strokeWidth={3} />}
+            </div>
+            <span className="text-base text-[#141D84] font-semibold break-words whitespace-normal leading-snug">Add "{normalizedSearch}"</span>
+          </div>
         )}
       </div>
 
@@ -269,16 +328,39 @@ const EnumPicker: React.FC<EnumPickerProps> = ({ label, options = [], value, onC
   );
 };
 
-export const MesopField: React.FC<MesopFieldProps> = ({ type, label, value, onChange, options, readOnly, placeholder, actionButton, description, className, onActivate }) => {
+export const MesopField: React.FC<MesopFieldProps> = ({
+  type,
+  label,
+  value,
+  onChange,
+  options,
+  readOnly,
+  placeholder,
+  actionButton,
+  description,
+  className,
+  onActivate,
+  tooltipId,
+  activeTooltipId,
+  onTooltipEnter,
+  onTooltipLeave,
+  tooltipAlign = 'center',
+}) => {
   const [isFocused, setIsFocused] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const hasValue = value !== '' && value !== null && value !== undefined && (Array.isArray(value) ? value.length > 0 : true);
   const isActive = isFocused || hasValue || !!placeholder;
+  const isZipField = /zip/i.test(label);
   const activate = () => onActivate?.();
 
   const handleBlur = () => {
     setIsFocused(false);
-    setError(validateField(type, value));
+    if (isZipField && value) {
+      const zip = String(value).replace(/\D/g, '');
+      setError(zip.length === 5 ? null : 'Zip code must be 5 digits');
+    } else {
+      setError(validateField(type, value));
+    }
     // Format phone number on blur
     if (type === 'Phone' && value) onChange(formatPhoneNumber(value));
   };
@@ -294,6 +376,45 @@ export const MesopField: React.FC<MesopFieldProps> = ({ type, label, value, onCh
     );
   }
 
+  // MESOP Style: Show (Video/App embed)
+  if (type === 'Show') {
+    const isYouTube = typeof value === 'string' && (value.includes('youtube.com') || value.includes('youtu.be'));
+    if (isYouTube) {
+      // Ensure it's using the embed URL format
+      let embedUrl = value as string;
+      if (embedUrl.includes('watch?v=')) {
+        embedUrl = embedUrl.replace('watch?v=', 'embed/');
+      } else if (embedUrl.includes('youtu.be/')) {
+        embedUrl = embedUrl.replace('youtu.be/', 'youtube.com/embed/');
+      }
+
+      return (
+        <div className={`${containerClass} col-span-full`}>
+          <MesopLabel label={label} description={description} />
+          <div className="aspect-video w-full rounded-xl overflow-hidden border border-gray-200 shadow-sm mt-1 bg-black">
+            <iframe 
+              width="100%" 
+              height="100%" 
+              src={embedUrl} 
+              title={label} 
+              frameBorder="0" 
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+              allowFullScreen
+            ></iframe>
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div className={`${containerClass} col-span-full`}>
+        <MesopLabel label={label} description={description} />
+        <div className="p-4 bg-blue-50/50 rounded-lg border border-blue-100 text-sm text-blue-900 mt-1 leading-relaxed">
+          {value || 'No content to display'}
+        </div>
+      </div>
+    );
+  }
+
   // MESOP Style: Text-based input fields
   if (['Text', 'Name', 'Email', 'Phone', 'Url', 'Address', 'LatLong', 'XY', 'ChangeLocation', 'Duration', 'App', 'ChangeTimestamp'].includes(type)) {
     let inputType = 'text';
@@ -301,7 +422,7 @@ export const MesopField: React.FC<MesopFieldProps> = ({ type, label, value, onCh
     if (type === 'Phone') inputType = 'tel';
     if (type === 'Url') inputType = 'url';
     let Icon = null;
-    if (['Address', 'ChangeLocation'].includes(type)) Icon = MapPin;
+    if (['ChangeLocation'].includes(type)) Icon = MapPin;
     if (['LatLong', 'XY'].includes(type)) Icon = MousePointer;
     if (type === 'Email') Icon = Mail;
     if (type === 'Phone') Icon = Phone;
@@ -321,21 +442,38 @@ export const MesopField: React.FC<MesopFieldProps> = ({ type, label, value, onCh
         <div className="relative">
           <input
             type={inputType}
+            aria-label={label}
             value={value || ''}
-            onChange={(e) => { setError(null); onChange(e.target.value); }}
+            onChange={(e) => {
+              setError(null);
+              let nextValue = type === 'Phone' ? formatPhoneInput(e.target.value) : e.target.value;
+              if (isZipField) {
+                nextValue = nextValue.replace(/\D/g, '').slice(0, 5);
+              }
+              onChange(nextValue);
+            }}
             onKeyDown={handleKeyDown}
             onFocus={() => { activate(); setIsFocused(true); }}
             onBlur={handleBlur}
             readOnly={readOnly || ['ChangeTimestamp', 'App'].includes(type)}
-            placeholder=" "
+            placeholder={placeholder || ' '}
             className={`
               peer w-full px-3 py-3 bg-white border rounded text-sm text-gray-900 outline-none transition-all
-              ${error ? 'border-red-500 border-2' : isFocused ? 'border-[#1a1a1a] border-2' : 'border-[#1a1a1a]'}
+              ${error ? 'border-red-500 ring-1 ring-red-200' : isFocused ? 'border-[#5972d0] ring-1 ring-[#5972d0]/20 shadow-sm' : 'border-gray-300'}
               ${readOnly ? 'bg-gray-50 text-gray-500 cursor-default' : ''} 
               ${Icon ? 'pr-10' : ''}
             `}
           />
-          <MesopLabel label={label} error={error} description={description} />
+          <MesopLabel
+            label={label}
+            error={error}
+            description={description}
+            tooltipId={tooltipId}
+            activeTooltipId={activeTooltipId}
+            onTooltipEnter={onTooltipEnter}
+            onTooltipLeave={onTooltipLeave}
+            tooltipAlign={tooltipAlign}
+          />
           {Icon && <div className={`absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none ${error ? 'text-red-400' : 'text-gray-500'}`}><Icon size={18} /></div>}
           {type === 'Phone' && value && <a href={`tel:${value}`} className="absolute right-9 top-1/2 -translate-y-1/2 p-1 text-[#141D84] hover:bg-[#F0F4FA] rounded z-20"><Phone size={14} className="fill-current" /></a>}
           {actionButton && !Icon && <div className="absolute right-2 top-1/2 -translate-y-1/2 z-20">{actionButton}</div>}
@@ -425,7 +563,7 @@ export const MesopField: React.FC<MesopFieldProps> = ({ type, label, value, onCh
       <div className={containerClass} onClick={(e) => e.stopPropagation()} onMouseDownCapture={activate}>
         <div className={`
           relative flex items-center w-full border rounded transition-all bg-white
-          ${error ? 'border-red-500 border-2' : isFocused ? 'border-[#1a1a1a] border-2' : 'border-[#1a1a1a]'}
+          ${error ? 'border-red-500 ring-1 ring-red-200' : isFocused ? 'border-[#5972d0] ring-1 ring-[#5972d0]/20 shadow-sm' : 'border-gray-300'}
           ${readOnly ? 'bg-gray-50' : ''}
         `}>
           {/* Dollar sign for Price field */}
@@ -441,11 +579,20 @@ export const MesopField: React.FC<MesopFieldProps> = ({ type, label, value, onCh
             readOnly={readOnly || type === 'ChangeCounter'}
             placeholder=" "
             className={`
-              w-full py-3 bg-transparent outline-none appearance-none peer text-sm
+              w-full py-3 bg-transparent outline-none appearance-none peer text-sm text-gray-900 placeholder-gray-400
               ${isPrice ? (isFocused || !getDisplayValue() ? 'pl-3' : 'pl-1') : 'pl-3'} ${(isPercent || isNumber) ? 'pr-10' : 'pr-3'}
             `}
           />
-          <MesopLabel label={label} error={error} description={description} />
+          <MesopLabel
+            label={label}
+            error={error}
+            description={description}
+            tooltipId={tooltipId}
+            activeTooltipId={activeTooltipId}
+            onTooltipEnter={onTooltipEnter}
+            onTooltipLeave={onTooltipLeave}
+            tooltipAlign={tooltipAlign}
+          />
 
           {/* Right-side icons/controls */}
           {isPercent && getDisplayValue() && <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"><Percent size={18} /></div>}
@@ -467,20 +614,29 @@ export const MesopField: React.FC<MesopFieldProps> = ({ type, label, value, onCh
       <div className={containerClass} onClick={(e) => e.stopPropagation()} onMouseDownCapture={activate}>
         <div className="relative">
           <textarea
+            aria-label={label}
             value={value || ''}
             onChange={(e) => onChange(e.target.value)}
             onFocus={() => { activate(); setIsFocused(true); }}
             onBlur={() => setIsFocused(false)}
             rows={3}
-            placeholder=" "
+            placeholder={placeholder || ' '}
             className={`
                 peer w-full px-3 py-3 bg-white border rounded text-sm text-gray-900 outline-none transition-all resize-none
-                ${isFocused ? 'border-[#1a1a1a] border-2' : 'border-[#1a1a1a]'}
+                ${isFocused ? 'border-[#5972d0] ring-1 ring-[#5972d0]/20 shadow-sm' : 'border-gray-300'}
                 ${readOnly ? 'bg-gray-50 text-gray-500' : ''}
               `}
             readOnly={readOnly}
           />
-          <MesopLabel label={label} description={description} />
+          <MesopLabel
+            label={label}
+            description={description}
+            tooltipId={tooltipId}
+            activeTooltipId={activeTooltipId}
+            onTooltipEnter={onTooltipEnter}
+            onTooltipLeave={onTooltipLeave}
+            tooltipAlign={tooltipAlign}
+          />
         </div>
       </div>
     );
@@ -501,6 +657,7 @@ export const MesopField: React.FC<MesopFieldProps> = ({ type, label, value, onCh
         <div className="relative">
           <input
             type={type === 'DateTime' ? 'datetime-local' : type === 'Time' ? 'time' : 'date'}
+            aria-label={label}
             value={value || ''}
             onChange={(e) => onChange(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -509,12 +666,20 @@ export const MesopField: React.FC<MesopFieldProps> = ({ type, label, value, onCh
             readOnly={readOnly}
             className={`
                 peer w-full px-3 py-3 pr-10 bg-white border rounded text-sm text-gray-900 outline-none transition-all
-                ${isFocused ? 'border-[#1a1a1a] border-2' : 'border-[#1a1a1a]'}
+                ${isFocused ? 'border-[#5972d0] ring-1 ring-[#5972d0]/20 shadow-sm' : 'border-gray-300'}
                 ${!value ? 'text-gray-400' : ''} 
                 ${readOnly ? 'bg-gray-50 text-gray-500' : ''}
               `}
           />
-          <MesopLabel label={label} description={description} />
+          <MesopLabel
+            label={label}
+            description={description}
+            tooltipId={tooltipId}
+            activeTooltipId={activeTooltipId}
+            onTooltipEnter={onTooltipEnter}
+            onTooltipLeave={onTooltipLeave}
+            tooltipAlign={tooltipAlign}
+          />
           <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none">
             {type === 'Time' ? <Clock size={18} /> : <Calendar size={18} />}
           </div>
@@ -540,21 +705,68 @@ export const MesopField: React.FC<MesopFieldProps> = ({ type, label, value, onCh
     } else if (value !== null && value !== undefined && value !== '') {
       displayValue = valueToLabel.get(String(value)) || String(value);
     }
+    const selectedEnumList = Array.isArray(value)
+      ? value.map((item) => ({ raw: String(item), label: valueToLabel.get(String(item)) || String(item) }))
+      : [];
 
     return (
       <>
         <div className={containerClass} onClick={(e) => { e.stopPropagation(); if (!readOnly) setPickerOpen(true); }}>
-          <div className="relative cursor-pointer">
+          <div
+            className="relative cursor-pointer"
+            role="button"
+            aria-label={label}
+            aria-haspopup="dialog"
+            aria-expanded={isPickerOpen}
+            tabIndex={readOnly ? -1 : 0}
+            onKeyDown={(event) => {
+              if (readOnly) return;
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                setPickerOpen(true);
+              }
+            }}
+          >
             <div className={`
               peer w-full px-3 py-3 pr-10 bg-white border rounded text-sm text-gray-900 outline-none transition-all min-h-[46px] flex items-center
-              ${isFocused || isPickerOpen ? 'border-[#1a1a1a] border-2' : 'border-[#1a1a1a]'}
+              ${isFocused || isPickerOpen ? 'border-[#5972d0] ring-1 ring-[#5972d0]/20 shadow-sm' : 'border-gray-300'}
               ${readOnly ? 'bg-gray-50 text-gray-500 cursor-default' : 'bg-white'}
             `}>
-              <span className={`truncate ${!displayValue ? 'text-gray-400' : ''}`}>
-                {displayValue || 'Select...'}
-              </span>
+              {type === 'EnumList' && selectedEnumList.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5 w-full">
+                  {selectedEnumList.map((item) => (
+                    <span key={item.raw} className="inline-flex items-center gap-1 rounded-full border border-indigo-200 bg-indigo-50 text-indigo-700 px-2 py-0.5 text-xs">
+                      {item.label}
+                      {!readOnly && (
+                        <button
+                          type="button"
+                          className="text-indigo-500 hover:text-red-500"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onChange((value as string[]).filter((entry) => String(entry) !== item.raw));
+                          }}
+                        >
+                          <X size={10} />
+                        </button>
+                      )}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <span className={`truncate ${!displayValue ? 'text-gray-400' : 'text-gray-900'}`}>
+                  {displayValue || 'Select...'}
+                </span>
+              )}
             </div>
-            <MesopLabel label={label} description={description} />
+            <MesopLabel
+              label={label}
+              description={description}
+              tooltipId={tooltipId}
+              activeTooltipId={activeTooltipId}
+              onTooltipEnter={onTooltipEnter}
+              onTooltipLeave={onTooltipLeave}
+              tooltipAlign={tooltipAlign}
+            />
             <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500">
               {type === 'Ref' ? <Search size={18} /> : <ChevronDown size={18} />}
             </div>
@@ -562,10 +774,10 @@ export const MesopField: React.FC<MesopFieldProps> = ({ type, label, value, onCh
         </div>
 
         {isPickerOpen && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={(e) => e.stopPropagation()}>
+          <div className="fixed inset-0 z-[6000] flex items-center justify-center p-4 sm:p-6 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={(e) => e.stopPropagation()}>
             <div className="absolute inset-0" onClick={() => setPickerOpen(false)}></div>
 
-            <div className="w-full max-w-md bg-white rounded-xl shadow-2xl overflow-hidden max-h-[70vh] flex flex-col relative z-10 animate-in zoom-in-95 duration-200">
+            <div className="w-[min(96vw,760px)] max-w-2xl bg-white rounded-xl shadow-2xl overflow-hidden max-h-[78vh] flex flex-col relative z-[6001] animate-in zoom-in-95 duration-200">
               <EnumPicker
                 label={label}
                 options={optionList}
@@ -586,7 +798,15 @@ export const MesopField: React.FC<MesopFieldProps> = ({ type, label, value, onCh
     return (
       <div className={containerClass} onClick={(e) => e.stopPropagation()} onMouseDownCapture={activate}>
         <div className="relative border border-[#1a1a1a] rounded bg-white px-3 py-3 flex items-center justify-between">
-          <MesopLabel label={label} description={description} />
+          <MesopLabel
+            label={label}
+            description={description}
+            tooltipId={tooltipId}
+            activeTooltipId={activeTooltipId}
+            onTooltipEnter={onTooltipEnter}
+            onTooltipLeave={onTooltipLeave}
+            tooltipAlign={tooltipAlign}
+          />
           <button
             disabled={readOnly}
             onClick={() => onChange(!value)}
@@ -634,7 +854,15 @@ export const MesopField: React.FC<MesopFieldProps> = ({ type, label, value, onCh
             </div>
             <Palette size={18} className="text-gray-500 mr-2" />
           </div>
-          <MesopLabel label={label} description={description} />
+          <MesopLabel
+            label={label}
+            description={description}
+            tooltipId={tooltipId}
+            activeTooltipId={activeTooltipId}
+            onTooltipEnter={onTooltipEnter}
+            onTooltipLeave={onTooltipLeave}
+            tooltipAlign={tooltipAlign}
+          />
         </div>
       </div>
     );
@@ -652,7 +880,15 @@ export const MesopField: React.FC<MesopFieldProps> = ({ type, label, value, onCh
             border border-[#1a1a1a] rounded bg-white px-3 py-3
             ${readOnly ? 'bg-gray-50' : ''}
           `}>
-            <MesopLabel label={label} description={description} />
+            <MesopLabel
+              label={label}
+              description={description}
+              tooltipId={tooltipId}
+              activeTooltipId={activeTooltipId}
+              onTooltipEnter={onTooltipEnter}
+              onTooltipLeave={onTooltipLeave}
+              tooltipAlign={tooltipAlign}
+            />
             {readOnly && value ? (
               <div className="flex items-center gap-3 mt-1">
                 {['Image', 'Thumbnail'].includes(type) ? (
@@ -684,7 +920,15 @@ export const MesopField: React.FC<MesopFieldProps> = ({ type, label, value, onCh
             border border-[#1a1a1a] rounded bg-white overflow-hidden
             ${readOnly ? 'pointer-events-none opacity-80' : ''}
           `}>
-            <MesopLabel label={label} description={description} />
+            <MesopLabel
+              label={label}
+              description={description}
+              tooltipId={tooltipId}
+              activeTooltipId={activeTooltipId}
+              onTooltipEnter={onTooltipEnter}
+              onTooltipLeave={onTooltipLeave}
+              tooltipAlign={tooltipAlign}
+            />
             <div
               className={`
                 h-24 bg-[#FAFAFA] hover:bg-white transition-colors cursor-crosshair relative
@@ -714,7 +958,15 @@ export const MesopField: React.FC<MesopFieldProps> = ({ type, label, value, onCh
     return (
       <div className={containerClass} onClick={(e) => e.stopPropagation()} onMouseDownCapture={activate}>
         <div className="relative border border-[#1a1a1a] rounded bg-white px-3 py-3">
-          <MesopLabel label={label} description={description} />
+          <MesopLabel
+            label={label}
+            description={description}
+            tooltipId={tooltipId}
+            activeTooltipId={activeTooltipId}
+            onTooltipEnter={onTooltipEnter}
+            onTooltipLeave={onTooltipLeave}
+            tooltipAlign={tooltipAlign}
+          />
           <div className="flex items-center gap-3 mt-1">
             <div className="flex-1 relative h-2 bg-gray-200 rounded-full overflow-hidden">
               <div
@@ -763,14 +1015,23 @@ export const MesopField: React.FC<MesopFieldProps> = ({ type, label, value, onCh
           onFocus={() => { activate(); setIsFocused(true); }}
           onBlur={handleBlur}
           readOnly={readOnly}
-          placeholder=" "
+          placeholder={placeholder || ' '}
           className={`
             peer w-full px-3 py-3 bg-white border rounded text-sm text-gray-900 outline-none transition-all
-            ${error ? 'border-red-500 border-2' : isFocused ? 'border-[#1a1a1a] border-2' : 'border-[#1a1a1a]'}
+            ${error ? 'border-red-500 ring-1 ring-red-200' : isFocused ? 'border-[#5972d0] ring-1 ring-[#5972d0]/20 shadow-sm' : 'border-gray-300'}
             ${readOnly ? 'bg-gray-50 text-gray-500 cursor-default' : ''}
           `}
         />
-        <MesopLabel label={label} error={error} description={description} />
+        <MesopLabel
+          label={label}
+          error={error}
+          description={description}
+          tooltipId={tooltipId}
+          activeTooltipId={activeTooltipId}
+          onTooltipEnter={onTooltipEnter}
+          onTooltipLeave={onTooltipLeave}
+          tooltipAlign={tooltipAlign}
+        />
       </div>
     </div>
   );
@@ -795,8 +1056,15 @@ export const FormsWidget: React.FC<FormsWidgetProps> = ({
   const { getSelectOptionsForCategory } = useEnumCatalog();
   const [currentStep, setCurrentStep] = useState(1);
   const stepperRef = useRef<HTMLDivElement>(null);
+  const isStepperDraggingRef = useRef(false);
+  const stepperDragStartXRef = useRef(0);
+  const stepperDragStartScrollRef = useRef(0);
+  const stepperScrollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const stepperHoldDirectionRef = useRef<'left' | 'right' | null>(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(true);
+  const [isStepperDragging, setIsStepperDragging] = useState(false);
+  const [isStepperClick, setIsStepperClick] = useState(true);
 
   // State
   const [genericFormData, setGenericFormData] = useState<any>(data || {});
@@ -806,6 +1074,7 @@ export const FormsWidget: React.FC<FormsWidgetProps> = ({
   const [sectionSort, setSectionSort] = useState<Record<number, 'default' | 'az'>>({});
   const [activeField, setActiveField] = useState<string | null>(null);
   const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({});
+  const [activeTooltipId, setActiveTooltipId] = useState<string | null>(null);
 
   // Determine schema to use: provided schema OR the default Component Gallery
   const activeSchema = schema || COMPREHENSIVE_EXAMPLE_SCHEMA;
@@ -939,6 +1208,56 @@ export const FormsWidget: React.FC<FormsWidgetProps> = ({
     }
   };
 
+  const startStepperScrolling = (direction: 'left' | 'right') => {
+    if (stepperScrollIntervalRef.current) {
+      clearInterval(stepperScrollIntervalRef.current);
+    }
+    stepperHoldDirectionRef.current = direction;
+    scrollStepper(direction);
+    stepperScrollIntervalRef.current = setInterval(() => {
+      scrollStepper(direction);
+    }, 200);
+  };
+
+  const stopStepperScrolling = () => {
+    if (stepperScrollIntervalRef.current) {
+      clearInterval(stepperScrollIntervalRef.current);
+      stepperScrollIntervalRef.current = null;
+    }
+    stepperHoldDirectionRef.current = null;
+  };
+
+  const beginStepperDrag = (clientX: number) => {
+    if (!stepperRef.current) return;
+    isStepperDraggingRef.current = true;
+    setIsStepperDragging(true);
+    setIsStepperClick(true);
+    stepperDragStartXRef.current = clientX;
+    stepperDragStartScrollRef.current = stepperRef.current.scrollLeft;
+  };
+
+  const moveStepperDrag = (clientX: number) => {
+    if (!isStepperDraggingRef.current || !stepperRef.current) return;
+    const delta = clientX - stepperDragStartXRef.current;
+    if (Math.abs(delta) > 5) setIsStepperClick(false);
+    // Slight acceleration keeps drag responsive on dense step lists.
+    stepperRef.current.scrollLeft = stepperDragStartScrollRef.current - (delta * 1.6);
+    checkScroll();
+  };
+
+  const endStepperDrag = () => {
+    isStepperDraggingRef.current = false;
+    setIsStepperDragging(false);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (stepperScrollIntervalRef.current) {
+        clearInterval(stepperScrollIntervalRef.current);
+      }
+    };
+  }, []);
+
   // Scroll stepper to make a specific step visible/centered
   const scrollToStepIndex = (stepIndex: number) => {
     if (!stepperRef.current) return;
@@ -987,11 +1306,12 @@ export const FormsWidget: React.FC<FormsWidgetProps> = ({
           <h3 className="text-lg font-normal text-[#202124]">{stepData.title}</h3>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2">
-          {fieldsToShow.map(field => {
+          {fieldsToShow.map((field, fieldIdx) => {
             const isLongLabel = field.label.length > 40;
             const alwaysFull = ['SectionHeader', 'LongText', 'File', 'Image', 'Signature', 'Drawing'].includes(field.type);
             const textFull = field.type === 'Text' && isLongLabel;
             const isFullWidth = alwaysFull || textFull || isLongLabel;
+            const columnPosition = isFullWidth ? 'center' : (fieldIdx % 2 === 0 ? 'right' : 'left');
 
             return (
               <div key={field.name} className={isFullWidth ? "col-span-1 md:col-span-2" : "col-span-1"}>
@@ -1001,6 +1321,11 @@ export const FormsWidget: React.FC<FormsWidgetProps> = ({
                   value={genericFormData[field.name]}
                   onChange={(v) => updateField(field.name, v)}
                   onActivate={() => markFieldInteraction(field.name)}
+                  tooltipId={field.name}
+                  activeTooltipId={activeTooltipId}
+                  onTooltipEnter={(id) => setActiveTooltipId(id)}
+                  onTooltipLeave={() => setActiveTooltipId(null)}
+                  tooltipAlign={columnPosition as 'left' | 'right' | 'center'}
                   options={resolveDynamicOptions(field)}
                   readOnly={readOnly || field.readOnly}
                   placeholder={field.placeholder}
@@ -1036,11 +1361,12 @@ export const FormsWidget: React.FC<FormsWidgetProps> = ({
               {isExpanded && (
                 <div className="p-4 bg-white border-t border-gray-100 animate-in slide-in-from-top-2">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2">
-                    {sortedFields.map(field => {
+                    {sortedFields.map((field, fieldIdx) => {
                       const isLongLabel = field.label.length > 40;
                       const alwaysFull = ['SectionHeader', 'LongText', 'File', 'Image', 'Signature', 'Drawing'].includes(field.type);
                       const textFull = field.type === 'Text' && isLongLabel;
                       const isFullWidth = alwaysFull || textFull || isLongLabel;
+                      const columnPosition = isFullWidth ? 'center' : (fieldIdx % 2 === 0 ? 'right' : 'left');
                       return (
                         <div key={field.name} className={isFullWidth ? "col-span-1 md:col-span-2" : "col-span-1"}>
                           <MesopField
@@ -1049,6 +1375,11 @@ export const FormsWidget: React.FC<FormsWidgetProps> = ({
                             value={genericFormData[field.name]}
                             onChange={(v) => updateField(field.name, v)}
                             onActivate={() => markFieldInteraction(field.name)}
+                            tooltipId={field.name}
+                            activeTooltipId={activeTooltipId}
+                            onTooltipEnter={(id) => setActiveTooltipId(id)}
+                            onTooltipLeave={() => setActiveTooltipId(null)}
+                            tooltipAlign={columnPosition as 'left' | 'right' | 'center'}
                             options={resolveDynamicOptions(field)}
                             readOnly={readOnly || field.readOnly}
                             placeholder={field.placeholder}
@@ -1095,18 +1426,59 @@ export const FormsWidget: React.FC<FormsWidgetProps> = ({
 
       {viewMode === 'wizard' && (
         <div className="bg-white border-b border-gray-100 relative z-10 shadow-sm font-sans py-2 shrink-0" onClick={(e) => e.stopPropagation()}>
-          <div className={`absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-white to-transparent z-20 flex items-center pl-1 transition-opacity duration-300 ${showLeftArrow ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}><button onClick={() => scrollStepper('left')} className="bg-white border border-gray-200 shadow-sm rounded-full p-1 hover:bg-[#F0F4FA] text-[#141D84]"><ChevronLeft size={14} /></button></div>
-          <div className={`absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent z-20 flex items-center justify-end pr-1 transition-opacity duration-300 ${showRightArrow ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}><button onClick={() => scrollStepper('right')} className="bg-white border border-gray-200 shadow-sm rounded-full p-1 hover:bg-[#F0F4FA] text-[#141D84]"><ChevronRight size={14} /></button></div>
-          <div ref={stepperRef} onScroll={checkScroll} className="flex items-center gap-8 px-4 overflow-x-auto no-scrollbar scroll-smooth">
+          <div className={`absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-white to-transparent z-20 flex items-center pl-1 transition-opacity duration-300 ${showLeftArrow ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
+            <button
+              onMouseDown={() => startStepperScrolling('left')}
+              onMouseUp={stopStepperScrolling}
+              onMouseLeave={stopStepperScrolling}
+              onClick={(e) => {
+                if (stepperHoldDirectionRef.current !== 'left') scrollStepper('left');
+                e.preventDefault();
+              }}
+              className="bg-white border border-gray-200 shadow-sm rounded-full p-1 hover:bg-[#F0F4FA] text-[#141D84]"
+            >
+              <ChevronLeft size={14} />
+            </button>
+          </div>
+          <div className={`absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent z-20 flex items-center justify-end pr-1 transition-opacity duration-300 ${showRightArrow ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
+            <button
+              onMouseDown={() => startStepperScrolling('right')}
+              onMouseUp={stopStepperScrolling}
+              onMouseLeave={stopStepperScrolling}
+              onClick={(e) => {
+                if (stepperHoldDirectionRef.current !== 'right') scrollStepper('right');
+                e.preventDefault();
+              }}
+              className="bg-white border border-gray-200 shadow-sm rounded-full p-1 hover:bg-[#F0F4FA] text-[#141D84]"
+            >
+              <ChevronRight size={14} />
+            </button>
+          </div>
+          <div
+            ref={stepperRef}
+            onScroll={checkScroll}
+            onMouseDown={(e) => beginStepperDrag(e.clientX)}
+            onMouseMove={(e) => moveStepperDrag(e.clientX)}
+            onMouseUp={endStepperDrag}
+            onMouseLeave={endStepperDrag}
+            onTouchStart={(e) => beginStepperDrag(e.touches[0].clientX)}
+            onTouchMove={(e) => moveStepperDrag(e.touches[0].clientX)}
+            onTouchEnd={endStepperDrag}
+            className={`flex items-center gap-8 px-4 overflow-x-auto no-scrollbar ${isStepperDragging ? 'cursor-grabbing select-none' : 'cursor-grab'}`}
+          >
             {visibleSteps.map((step, idx) => (
               <React.Fragment key={step.id}>
                 <div
                   data-step-item
                   className={`flex items-center gap-3 cursor-pointer group flex-shrink-0 transition-opacity ${currentStep === step.id ? 'opacity-100' : 'opacity-50 hover:opacity-80'}`}
-                  onClick={() => { setCurrentStep(step.id); setTimeout(() => scrollToStepIndex(idx), 100); }}
+                  onClick={() => {
+                    if (!isStepperClick) return;
+                    setCurrentStep(step.id);
+                    setTimeout(() => scrollToStepIndex(idx), 100);
+                  }}
                 >
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold transition-all duration-300 border ${currentStep === step.id ? 'bg-[#141D84] text-white border-[#141D84]' : currentStep > step.id ? 'bg-[#141D84] text-white border-[#141D84]' : 'bg-white text-gray-400 border-gray-200'}`}>
-                    {currentStep > step.id ? <Check size={12} strokeWidth={3} /> : step.id}
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold transition-all duration-300 border ${currentStep === step.id ? 'bg-[#141D84] text-white border-[#141D84]' : idx < currentStepIndex ? 'bg-[#141D84] text-white border-[#141D84]' : 'bg-white text-gray-400 border-gray-200'}`}>
+                    {idx < currentStepIndex ? <Check size={12} strokeWidth={3} /> : idx + 1}
                   </div>
                   <span className={`text-xs font-bold uppercase tracking-wide whitespace-nowrap ${currentStep === step.id ? 'text-[#141D84]' : 'text-gray-500'}`}>{step.title}</span>
                 </div>

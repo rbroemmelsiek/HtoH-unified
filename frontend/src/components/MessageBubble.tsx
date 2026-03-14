@@ -42,6 +42,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, agent, co
   const hasPdfViewerWidget = message.text.includes('[[WIDGET:PDFViewer]]') || message.text.includes('[[WIDGET:Kindle]]');
   
   const hasWidget = hasCalendarWidget || hasMapsWidget || hasPlacesWidget || hasYouTubeWidget || hasGraphWidget || hasFormsWidget || hasContactsWidget || hasPlanWidget || hasAcademyWidget || hasPdfViewerWidget;
+  const transactionsTable = config?.tableDefinitions.find((t) => t.id === 'transactions');
 
   // Clean text for display
   let displayText = message.text
@@ -292,7 +293,13 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, agent, co
              )}
              {hasFormsWidget && !isUser && (
                 <div className="w-full">
-                  <FormsWidget onExpand={() => onExpandWidget && onExpandWidget('forms')} corpusData={config?.corpusData} />
+                 <FormsWidget
+                   onExpand={() => onExpandWidget && onExpandWidget('forms')}
+                   corpusData={config?.corpusData}
+                   schema={transactionsTable?.schema}
+                   title={transactionsTable?.name || 'Transactions'}
+                   firstStepTitle="Transaction Type"
+                 />
                 </div>
              )}
              {hasContactsWidget && !isUser && (

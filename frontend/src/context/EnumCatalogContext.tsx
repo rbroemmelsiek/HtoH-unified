@@ -71,6 +71,26 @@ function groupCatalog(items: EnumCatalogItem[]): GroupedEnumCatalog {
   }, {});
 }
 
+function normalizeCategoryKey(value: string): string {
+  return String(value || '').trim().toLowerCase().replace(/[\s_-]+/g, '');
+}
+
+function resolveCategoryItems(groupedCatalog: GroupedEnumCatalog, category?: string): EnumCatalogItem[] | null {
+  if (!category) return null;
+  if (groupedCatalog[category]) return groupedCatalog[category];
+
+  const directInsensitive = Object.entries(groupedCatalog).find(
+    ([key]) => key.toLowerCase() === String(category).toLowerCase()
+  );
+  if (directInsensitive) return directInsensitive[1];
+
+  const normalizedRequested = normalizeCategoryKey(category);
+  const normalizedMatch = Object.entries(groupedCatalog).find(
+    ([key]) => normalizeCategoryKey(key) === normalizedRequested
+  );
+  return normalizedMatch ? normalizedMatch[1] : null;
+}
+
 export function EnumCatalogProvider({ children }: { children: React.ReactNode }) {
   const [groupedCatalog, setGroupedCatalog] = useState<GroupedEnumCatalog>({});
   const [loading, setLoading] = useState(false);
@@ -119,7 +139,7 @@ export function EnumCatalogProvider({ children }: { children: React.ReactNode })
         source: 'displayName' | 'enumValue' = 'displayName'
       ) => {
         if (!category) return fallback;
-        const matches = groupedCatalog[category];
+        const matches = resolveCategoryItems(groupedCatalog, category);
         if (!matches || matches.length === 0) return fallback;
         const sorted = [...matches].sort((a, b) => {
           if (a.sortOrder !== null && b.sortOrder !== null) return a.sortOrder - b.sortOrder;
@@ -140,7 +160,7 @@ export function EnumCatalogProvider({ children }: { children: React.ReactNode })
         if (!category) {
           return fallback.map((item) => ({ label: item, value: item }));
         }
-        const matches = groupedCatalog[category];
+        const matches = resolveCategoryItems(groupedCatalog, category);
         if (!matches || matches.length === 0) {
           return fallback.map((item) => ({ label: item, value: item }));
         }
