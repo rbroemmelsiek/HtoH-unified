@@ -6,6 +6,7 @@ import Toolbar from '../Toolbar';
 import { usePlan } from '../../context/PlanContext';
 import { getVisibleFlatList } from '../../utils/planHelpers';
 import { getAutocompleteSuggestion } from '../../utils/aiHelpers';
+import { AppTooltip } from '../../../ui/AppTooltip';
 import { 
   GripIcon, PlayCircleIcon, InfoIcon, MoreHorizontalIcon, 
   CaretRightFillIcon, CaretDownFillIcon, AtomIcon 
@@ -27,11 +28,7 @@ const RowHeader: React.FC<RowHeaderProps> = ({ row, children, icon, className = 
   const [menuPosition, setMenuPosition] = useState<{top?: number, bottom?: number, right: number} | null>(null);
   
   const [ghostText, setGhostText] = useState("");
-  
-  const [infoOpen, setInfoOpen] = useState(false);
-  const [tooltipPos, setTooltipPos] = useState<{ top: number, left: number, transform: string } | null>(null);
-  
-  const infoRef = useRef<HTMLDivElement>(null);
+
   const kebabRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const editContainerRef = useRef<HTMLDivElement>(null);
@@ -66,40 +63,6 @@ const RowHeader: React.FC<RowHeaderProps> = ({ row, children, icon, className = 
       }
     }
   }, [row.edit]);
-
-  // Update tooltip position when icon is hovered
-  useEffect(() => {
-    if (infoOpen && infoRef.current) {
-      const rect = infoRef.current.getBoundingClientRect();
-      const tooltipWidth = 320; // Matches w-80
-      const tooltipMaxHeight = 320; // Matches max-h-80
-      
-      // Since we use 'fixed' positioning, coordinates are viewport-relative (0,0 is top-left of screen)
-      // DO NOT add window.scrollY or window.scrollX
-      let top = rect.bottom + 8;
-      let left = rect.left - (tooltipWidth / 2) + (rect.width / 2);
-      let transform = 'translateY(0)';
-
-      // Check vertical bounds: If not enough space below, show ABOVE
-      const spaceBelow = window.innerHeight - rect.bottom;
-      if (spaceBelow < tooltipMaxHeight && rect.top > tooltipMaxHeight) {
-        top = rect.top - 8;
-        transform = 'translateY(-100%)';
-      }
-
-      // Check horizontal bounds: Keep within viewport padding
-      const padding = 12;
-      if (left < padding) {
-        left = padding;
-      } else if (left + tooltipWidth > window.innerWidth - padding) {
-        left = window.innerWidth - tooltipWidth - padding;
-      }
-
-      setTooltipPos({ top, left, transform });
-    } else {
-      setTooltipPos(null);
-    }
-  }, [infoOpen]);
 
   const handleSave = (finalName?: string, finalLink?: string) => {
     const nameToSave = finalName !== undefined ? finalName : localName;
@@ -245,30 +208,20 @@ const RowHeader: React.FC<RowHeaderProps> = ({ row, children, icon, className = 
         )}
 
         {row.tooltip && (
-           <div 
-             ref={infoRef}
-             className="relative ml-2 flex items-center"
-             onMouseEnter={() => setInfoOpen(true)}
-             onMouseLeave={() => setInfoOpen(false)}
-             onClick={(e) => e.stopPropagation()}
-           >
-             <button className={isPanel ? "text-white/70" : "text-gray-400"} aria-label="Information"><InfoIcon className="w-4 h-4" /></button>
-             
-             {/* Portaled Tooltip */}
-             {infoOpen && tooltipPos && createPortal(
-                <div 
-                  className="fixed z-[99999] w-80 max-h-80 overflow-y-auto bg-white rounded-lg shadow-[0_10px_40px_rgba(0,0,0,0.3)] p-4 text-xs text-gray-700 border border-gray-100 leading-relaxed ring-1 ring-black/5 animate-in fade-in zoom-in-95 duration-200 scrollbar-thin scrollbar-thumb-gray-200"
-                  style={{
-                    top: tooltipPos.top,
-                    left: tooltipPos.left,
-                    transform: tooltipPos.transform
-                  }}
-                >
-                    {row.tooltip}
-                </div>,
-                document.body
-             )}
-           </div>
+          <div className="relative ml-2 flex items-center" onClick={(e) => e.stopPropagation()}>
+            <AppTooltip
+              content={row.tooltip}
+              align="left"
+              side="bottom"
+              boundarySelector="[data-tooltip-boundary]"
+              maxWidth={320}
+              className="items-center"
+            >
+              <button className={isPanel ? "text-white/70" : "text-gray-400"} aria-label="Information">
+                <InfoIcon className="w-4 h-4" />
+              </button>
+            </AppTooltip>
+          </div>
         )}
       </div>
     );

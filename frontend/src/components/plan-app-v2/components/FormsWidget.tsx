@@ -8,7 +8,13 @@ import {
 } from './Icons';
 import { EnumOption, FieldDef, MesopType } from '../types';
 import { useEnumCatalog } from '../../../context/EnumCatalogContext';
-import { evaluateShowIfExpression, resolveFieldSelectOptions } from '../../../services/formLogic';
+import {
+  clearFormLogicCache,
+  evaluateShowIfExpression,
+  resolveFieldSelectOptions,
+  verifyFieldEnumOptionsComplete,
+} from '../../../services/formLogic';
+import { AppTooltip } from '../../ui/AppTooltip';
 
 interface FormsWidgetProps {
   onExpand?: () => void;
@@ -136,22 +142,27 @@ const formatPhoneNumber = (value: string) => {
 };
 
 // MESOP Style: Label ALWAYS floats above the input field
-const MesopLabel = ({ label, error, description }: { label: string, error?: string | null, description?: string }) => (
-  <div className="absolute left-3 -top-2.5 px-1 bg-white pointer-events-none z-10 flex items-center gap-1 font-sans">
-    <div className="absolute inset-0 bg-white h-[2px] top-[50%] -z-10 w-full"></div>
-    <span className="text-xs font-medium text-[#202124] truncate max-w-[200px]">{label}</span>
-    {error && <span className="text-[10px] font-normal text-red-500 ml-1">• {error}</span>}
-    {description && (
-      <span className="pointer-events-auto group relative ml-1 cursor-help">
-        <HelpCircle size={10} className="text-gray-300 hover:text-[#141D84]" />
-        <div className="absolute left-0 bottom-full mb-1.5 w-48 z-50 bg-slate-800 text-white text-[10px] p-2 rounded shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity text-left leading-relaxed">
-          {description}
-          <div className="absolute -bottom-1 left-2 w-2 h-2 bg-slate-800 border-b border-r border-slate-700 transform rotate-45"></div>
-        </div>
-      </span>
-    )}
-  </div>
-);
+const MesopLabel = ({ label, error, description }: { label: string, error?: string | null, description?: string }) => {
+  return (
+    <div className="absolute left-3 -top-2.5 px-1 bg-white pointer-events-none z-10 flex items-center gap-1 font-sans">
+      <div className="absolute inset-0 bg-white h-[2px] top-[50%] -z-10 w-full"></div>
+      <span className="text-xs font-medium text-[#202124] truncate max-w-[200px]">{label}</span>
+      {error && <span className="text-[10px] font-normal text-red-500 ml-1">• {error}</span>}
+      {description && (
+        <AppTooltip
+          content={description}
+          align="left"
+          side="bottom"
+          boundarySelector="[data-tooltip-boundary]"
+          className="pointer-events-auto ml-1 cursor-help"
+          disableClickToggle
+        >
+          <HelpCircle size={10} className="text-gray-300 hover:text-[#141D84]" />
+        </AppTooltip>
+      )}
+    </div>
+  );
+};
 
 interface EnumPickerProps {
   label: string;
@@ -207,7 +218,12 @@ const EnumPicker: React.FC<EnumPickerProps> = ({ label, options = [], value, onC
     <div className="flex flex-col h-full bg-white font-sans shadow-2xl rounded-t-xl overflow-hidden">
       {/* Header */}
       <div className="p-4 border-b border-gray-200 bg-white sticky top-0 z-20">
-        <h3 className="font-bold text-lg text-gray-900 mb-3">{label}</h3>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h3 className="font-bold text-lg text-gray-900">{label}</h3>
+          <span className="text-xs font-semibold text-gray-500 whitespace-nowrap">
+            {`${options.length} total`}
+          </span>
+        </div>
         <div className="relative">
           <input
             type="text"
@@ -818,7 +834,11 @@ export const FormsWidget: React.FC<FormsWidgetProps> = ({
   isFullScreen,
   firstStepTitle
 }) => {
-  const { getSelectOptionsForCategory } = useEnumCatalog();
+  const { getSelectOptionsForCategory, catalogVersion } = useEnumCatalog();
+  useEffect(() => {
+    clearFormLogicCache();
+  }, [catalogVersion]);
+
   const [currentStep, setCurrentStep] = useState(1);
   const stepperRef = useRef<HTMLDivElement>(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
@@ -832,12 +852,18 @@ export const FormsWidget: React.FC<FormsWidgetProps> = ({
   const [sectionSort, setSectionSort] = useState<Record<number, 'default' | 'az'>>({});
   const [activeField, setActiveField] = useState<string | null>(null);
   const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({});
+  const verifiedEnumFieldsRef = useRef<Set<string>>(new Set());
+  const enumCoverageDigestRef = useRef<string>('');
 
   // Determine schema to use: provided schema OR the default Component Gallery
   const activeSchema = schema || COMPREHENSIVE_EXAMPLE_SCHEMA;
   const formData = isGenericMode() ? genericFormData : propsFormData; // Fallback only if no state
 
   function isGenericMode() { return true; } // Always treat as generic now to support all types
+
+  useEffect(() => {
+    verifiedEnumFieldsRef.current.clear();
+  }, [activeSchema, catalogVersion]);
 
   // Initialize Steps from Schema
   useEffect(() => {
@@ -883,6 +909,27 @@ export const FormsWidget: React.FC<FormsWidgetProps> = ({
       if (prev[fieldName]) return prev;
       return { ...prev, [fieldName]: true };
     });
+
+    const schemaField = activeSchema.find((field) => field.name === fieldName);
+    if (!schemaField) return;
+    if (verifiedEnumFieldsRef.current.has(fieldName)) return;
+
+    const verification = verifyFieldEnumOptionsComplete(
+      schemaField,
+      genericFormData || {},
+      getSelectOptionsForCategory,
+      catalogVersion
+    );
+
+    if (verification.status === 'pass') {
+      verifiedEnumFieldsRef.current.add(fieldName);
+      console.info('[FormsWidget v2] Enum options verified as complete.', verification);
+      return;
+    }
+
+    if (verification.status === 'fail') {
+      console.warn('[FormsWidget v2] Enum options verification failed.', verification);
+    }
   };
 
   const evaluateShowIf = (field: FieldDef): boolean => {
@@ -896,8 +943,59 @@ export const FormsWidget: React.FC<FormsWidgetProps> = ({
   };
 
   const resolveFieldOptions = (field: FieldDef): EnumOption[] => {
-    return resolveFieldSelectOptions(field, genericFormData || {}, getSelectOptionsForCategory);
+    return resolveFieldSelectOptions(field, genericFormData || {}, getSelectOptionsForCategory, catalogVersion);
   };
+
+  useEffect(() => {
+    const enumFields = activeSchema.filter((field) => field.type === 'Enum' || field.type === 'EnumList');
+    if (enumFields.length === 0) return;
+
+    const failures: Array<{ fieldName: string; reason?: string; missingCount?: number; extraCount?: number }> = [];
+    let verifiedCount = 0;
+    let skippedCount = 0;
+
+    enumFields.forEach((field) => {
+      const result = verifyFieldEnumOptionsComplete(
+        field,
+        genericFormData || {},
+        getSelectOptionsForCategory,
+        catalogVersion
+      );
+      if (result.status === 'pass') {
+        verifiedCount += 1;
+        return;
+      }
+      if (result.status === 'skip') {
+        skippedCount += 1;
+        return;
+      }
+      failures.push({
+        fieldName: result.fieldName,
+        reason: result.reason,
+        missingCount: result.missingValues?.length || 0,
+        extraCount: result.extraValues?.length || 0,
+      });
+    });
+
+    const digest = JSON.stringify({ verifiedCount, skippedCount, failures });
+    if (enumCoverageDigestRef.current === digest) return;
+    enumCoverageDigestRef.current = digest;
+
+    if (failures.length > 0) {
+      console.warn('[FormsWidget v2] Enum coverage verification found mismatches.', {
+        verifiedCount,
+        skippedCount,
+        failures,
+      });
+      return;
+    }
+
+    console.info('[FormsWidget v2] Enum coverage verification passed.', {
+      verifiedCount,
+      skippedCount,
+      totalEnumFields: enumFields.length,
+    });
+  }, [activeSchema, genericFormData, getSelectOptionsForCategory, catalogVersion]);
 
   const getVisibleFields = (fields: FieldDef[]) =>
     fields.filter((field) => !field.hidden && evaluateShowIf(field));
@@ -1080,7 +1178,9 @@ export const FormsWidget: React.FC<FormsWidgetProps> = ({
   }
 
   return (
-    <div className={`bg-white rounded-xl shadow-lg border border-gray-200 w-full ${onExpand ? 'max-w-2xl mt-2' : 'h-full'} animate-fade-in overflow-hidden flex flex-col min-h-0 font-sans`}
+    <div
+      data-tooltip-boundary
+      className={`bg-white rounded-xl shadow-lg border border-gray-200 w-full ${onExpand ? 'max-w-2xl mt-2' : 'h-full'} animate-fade-in overflow-hidden flex flex-col min-h-0 font-sans`}
       style={{ height: onExpand ? '600px' : '100%' }}
       onClick={(e) => { if (onExpand) onExpand(); }}
     >

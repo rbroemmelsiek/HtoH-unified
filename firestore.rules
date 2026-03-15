@@ -23,5 +23,25 @@ service cloud.firestore {
       allow create: if request.auth != null
         && request.resource.data.ownerId == request.auth.uid;
     }
+
+    // Read-only enum catalog for client dropdowns.
+    match /EnumsCatalog/{enumId} {
+      allow read, write: if true;
+    }
+
+    // Backward-compatible lowercase collection variant.
+    match /enumsCatalog/{enumId} {
+      allow read, write: if true;
+    }
+
+    // Read-only AI guides catalog for client content rendering.
+    match /AiGuides/{guideId} {
+      allow read, write: if true;
+    }
+
+    // Backward-compatible lowercase collection variant.
+    match /aiGuides/{guideId} {
+      allow read, write: if true;
+    }
   }
 }

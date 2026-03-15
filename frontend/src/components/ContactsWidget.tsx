@@ -6,7 +6,7 @@ import { FieldDef, TableDefinition } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { useEnumCatalog } from '../context/EnumCatalogContext';
 import planGateway from '../services/planGateway/planGateway';
-import { resolveFieldSelectOptions } from '../services/formLogic';
+import { clearFormLogicCache, resolveFieldSelectOptions } from '../services/formLogic';
 import {
   ContactRecord,
   getContactDirectory,
@@ -96,7 +96,11 @@ export const ContactsWidget: React.FC<ContactsWidgetProps> = ({
   onToggleFullScreen,
   isFullScreen
 }) => {
-  const { getSelectOptionsForCategory } = useEnumCatalog();
+  const { getSelectOptionsForCategory, catalogVersion } = useEnumCatalog();
+  useEffect(() => {
+    clearFormLogicCache();
+  }, [catalogVersion]);
+
   const { user, userProfile, setCurrentPlanId } = useAuth();
   const [activeTab, setActiveTab] = useState<'all' | 'party' | 'provider' | 'vendor'>('all');
   const [viewMode, setViewMode] = useState<'deck' | 'table' | 'carousel'>('carousel');
@@ -281,8 +285,8 @@ export const ContactsWidget: React.FC<ContactsWidgetProps> = ({
 
   const selectedFieldOptions = useMemo(() => {
     if (!selectedFilterField) return [];
-    return resolveFieldSelectOptions(selectedFilterField, {}, getSelectOptionsForCategory);
-  }, [selectedFilterField, getSelectOptionsForCategory]);
+    return resolveFieldSelectOptions(selectedFilterField, {}, getSelectOptionsForCategory, catalogVersion);
+  }, [selectedFilterField, getSelectOptionsForCategory, catalogVersion]);
 
   // Sync Carousel Index with filtered results or selection
   useEffect(() => {

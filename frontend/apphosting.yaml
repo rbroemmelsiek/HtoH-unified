@@ -68,3 +68,8 @@ env:
     availability:
       - BUILD
       - RUNTIME
+  - variable: NEXT_PUBLIC_AI_GUIDES_COLLECTION
+    value: AiGuides
+    availability:
+      - BUILD
+      - RUNTIME

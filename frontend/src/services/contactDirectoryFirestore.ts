@@ -161,26 +161,38 @@ export async function fetchContactsForOwner(ownerId: string): Promise<ContactRec
 
 export async function upsertContactsForOwner(ownerId: string, contacts: ContactRecord[]): Promise<void> {
   const db = requireFirestore();
-  const batch = writeBatch(db);
+  
+  // Firestore batch limit is 500 operations
+  const BATCH_SIZE = 400;
+  
+  for (let i = 0; i < contacts.length; i += BATCH_SIZE) {
+    const chunk = contacts.slice(i, i + BATCH_SIZE);
+    const batch = writeBatch(db);
 
-  contacts.forEach((contact) => {
-    const docId = normalizeDocId(String(contact.id || crypto.randomUUID()));
-    const ref = doc(db, CONTACTS_COLLECTION, docId);
-    const payload = stripUndefinedDeep({
-      ...contact,
-      id: docId,
-      ownerId,
-      updatedAt: serverTimestamp(),
-      createdAt: serverTimestamp(),
+    chunk.forEach((contact) => {
+      const docId = normalizeDocId(String(contact.id || crypto.randomUUID()));
+      const ref = doc(db, CONTACTS_COLLECTION, docId);
+      
+      // Basic payload
+      const payload: Record<string, any> = stripUndefinedDeep({
+        ...contact,
+        id: docId,
+        ownerId,
+        updatedAt: serverTimestamp(),
+      });
+
+      // Optimization: We only set createdAt if it's not already there in the local object.
+      // If it is in the local object (e.g. from a previous fetch), we keep it.
+      // If not, we set it now.
+      if (!contact.createdAt) {
+        payload.createdAt = serverTimestamp();
+      }
+
+      batch.set(ref, payload, { merge: true });
     });
-    batch.set(
-      ref,
-      payload,
-      { merge: true }
-    );
-  });
 
-  await batch.commit();
+    await batch.commit();
+  }
 }
 
 export async function ensureSeededContactsForOwner(

@@ -93,7 +93,7 @@ export const MoneySceneTable: React.FC<MoneySceneTableProps> = ({
     };
 
     return (
-        <div className="flex flex-col relative h-auto">
+        <div data-tooltip-boundary className="flex flex-col relative h-auto">
             {/* Modal Wrapper around FormsWidget */}
             {showModal && (
                 <div className="fixed inset-0 z-[100] flex items-start justify-center pt-16 md:pt-20 p-4 animate-in fade-in duration-200">

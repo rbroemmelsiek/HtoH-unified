@@ -12,10 +12,59 @@ export interface ContactRecord {
   notes?: string;
   linkedPlanId?: string | null;
   linkedOwnerId?: string | null;
+  createdAt?: any;
+  updatedAt?: any;
   [key: string]: unknown;
 }
 
 const CONTACTS_STORAGE_KEY = 'hth-contacts-directory-v1';
+
+/**
+ * Maps AppSheet-style field names to standard ContactRecord fields.
+ * Ensures parity between form data, Firestore, and local state.
+ */
+export function normalizeContact(data: any): ContactRecord {
+  const existingId = String(data.id || data.Client_ID || data.ContactID || '').trim();
+  const generatedId = existingId || (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `contact_${Date.now()}`);
+
+  const first = String(data.FirstName || '').trim();
+  const last = String(data.LastName || '').trim();
+  const combinedName = `${first} ${last}`.trim();
+  const name = combinedName || String(data.name || '').trim() || 'New Contact';
+
+  const phone = String(data.Mobile || data.phone || '').trim();
+  const email = String(data.Email || data.email || '').trim();
+  const company = String(data.CompanyName || data.company || '').trim();
+  const imageUrl = String(data.Photo || data.imageUrl || 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?auto=format&fit=crop&w=600&q=80').trim();
+  const address = String(data.HomeAddress || data.address || '').trim();
+  const notes = String(data.AdditionalInfo || data.notes || '').trim();
+
+  // Determine category
+  const services = String(data.ServicesAndProviders || '').toLowerCase();
+  let category: ContactRecord['category'] = (data.category as any) || 'party';
+  if (services.includes('vendor')) category = 'vendor';
+  else if (services.includes('broker') || services.includes('lender') || services.includes('internal') || services.includes('agency')) category = 'provider';
+
+  return {
+    ...data,
+    id: generatedId,
+    Client_ID: generatedId,
+    ContactID: generatedId,
+    name,
+    phone,
+    email,
+    company: company || undefined,
+    imageUrl,
+    address: address || undefined,
+    notes: notes || undefined,
+    category,
+    isFavorite: Boolean(data.isFavorite),
+    linkedPlanId: (data.linkedPlanId as string | null | undefined) ?? null,
+    linkedOwnerId: (data.linkedOwnerId as string | null | undefined) ?? 'self',
+  };
+}
 
 export const DEFAULT_CONTACTS: ContactRecord[] = [
   {

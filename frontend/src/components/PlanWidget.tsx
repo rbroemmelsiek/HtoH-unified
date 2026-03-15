@@ -38,7 +38,7 @@ export const PlanWidget: React.FC<PlanWidgetProps> = ({
   // This provides better integration and shared state
 
   return (
-    <div className="flex flex-col h-full bg-white">
+    <div data-tooltip-boundary className="flex flex-col h-full bg-white">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gradient-to-r from-[#5972d0] to-[#141D84] flex-shrink-0 relative z-20">
         <div className="flex items-center gap-2 text-white">

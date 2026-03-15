@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Info } from 'lucide-react';
+import { AppTooltip } from '../ui/AppTooltip';
 
 export const rowStyle = "border-b border-slate-700/30 hover:bg-slate-800/20 transition-colors";
 // Reduced padding on mobile (px-1) to ensure tables fit without clipping
@@ -105,30 +106,28 @@ export const LabelWithTooltip = ({ label, children, description }: { label: stri
     }
   
     return (
-      <div className="flex items-center gap-1.5 relative group">
-        <span className="cursor-pointer flex items-center gap-1 leading-tight break-words" onClick={() => setIsOpen(!isOpen)}>{children || label}</span>
-        <button 
-          onClick={(e) => { e.stopPropagation(); setIsOpen(!isOpen); }}
-          className="text-slate-500 hover:text-blue-400 focus:outline-none flex-shrink-0"
-          aria-label="Info"
+      <div className="flex items-center gap-1.5 relative">
+        <AppTooltip
+          content={descText}
+          isOpen={isOpen}
+          onOpenChange={setIsOpen}
+          align="left"
+          side="bottom"
+          boundarySelector="[data-tooltip-boundary]"
+          className="items-center"
         >
-          <Info size={12} />
-        </button>
-        {/* Tooltip: Positioned above (bottom-full) with marginBottom to prevent clipping */}
-        <div className="hidden group-hover:block absolute left-0 bottom-full mb-2 w-64 z-50 bg-slate-800 text-slate-200 text-[10px] p-2.5 rounded border border-slate-600 shadow-xl whitespace-normal leading-relaxed pointer-events-none">
-            {descText}
-            <div className="absolute -bottom-1 left-3 w-2 h-2 bg-slate-800 border-b border-r border-slate-600 transform rotate-45"></div>
-        </div>
-        {/* Mobile Click State */}
-        {isOpen && (
-          <div className="absolute left-0 bottom-full mb-2 w-64 z-50 bg-slate-800 text-slate-200 text-[10px] p-2.5 rounded border border-slate-600 shadow-xl whitespace-normal leading-relaxed block md:hidden">
-            {descText}
-            <div className="absolute -bottom-1 left-3 w-2 h-2 bg-slate-800 border-b border-r border-slate-600 transform rotate-45"></div>
-          </div>
-        )}
-        {isOpen && (
-          <div className="fixed inset-0 z-40 bg-transparent md:hidden" onClick={() => setIsOpen(false)}></div>
-        )}
+          <span className="cursor-pointer flex items-center gap-1 leading-tight break-words">{children || label}</span>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsOpen((prev) => !prev);
+            }}
+            className="text-slate-500 hover:text-blue-400 focus:outline-none flex-shrink-0"
+            aria-label="Info"
+          >
+            <Info size={12} />
+          </button>
+        </AppTooltip>
       </div>
     );
 };

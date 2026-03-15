@@ -85,7 +85,7 @@ export const CashToCloseTable: React.FC<CashToCloseTableProps> = ({
     const valueCell = `py-3 px-3 text-right font-mono text-slate-300 border-r border-slate-600 text-xs ${valueColWidth} align-middle`;
 
     return (
-        <div className="flex flex-col relative h-auto bg-slate-800 text-slate-300">
+        <div data-tooltip-boundary className="flex flex-col relative h-auto bg-slate-800 text-slate-300">
             {/* Header - Sticky under CalculatorBar */}
             <div className="sticky top-[56px] bg-slate-800 z-40 px-4 py-2 border-b border-slate-700 flex justify-between items-center shadow-sm min-h-[56px]">
                 <div className="flex flex-col">

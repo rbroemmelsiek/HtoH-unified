@@ -1,6 +1,7 @@
 "use client";
 
 import { AuthProvider } from "../src/context/AuthContext";
+import { EnumCatalogProvider } from "../src/context/EnumCatalogContext";
 import PrimaryApp from "../src/App";
 
 // #region agent log
@@ -19,8 +20,10 @@ export default function PrimaryAppClient() {
   });
   // #endregion
   return (
-    <AuthProvider defaultTier="free">
-      <PrimaryApp />
-    </AuthProvider>
+    <EnumCatalogProvider>
+      <AuthProvider defaultTier="free">
+        <PrimaryApp />
+      </AuthProvider>
+    </EnumCatalogProvider>
   );
 }
