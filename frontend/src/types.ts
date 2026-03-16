@@ -94,7 +94,20 @@ export interface VideoData {
   likes: number;
 }
 
-export type ExpandedWidgetType = 'calendar' | 'maps' | 'places' | 'youtube' | 'graph' | 'forms' | 'contacts' | 'plan' | 'academy' | 'academy_hub' | 'kindle' | null;
+export type ExpandedWidgetType =
+  | 'calendar'
+  | 'maps'
+  | 'places'
+  | 'youtube'
+  | 'graph'
+  | 'forms'
+  | 'contacts'
+  | 'plan'
+  | 'academy'
+  | 'academy_hub'
+  | 'kindle'
+  | 'ai_guides'
+  | null;
 export type TargetTool = 'general' | 'forms' | 'contacts';
 
 // --- CALCULATOR TYPES ---

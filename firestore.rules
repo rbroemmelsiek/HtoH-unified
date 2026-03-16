@@ -1,6 +1,11 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function isAiGuidesAdmin() {
+      return request.auth != null
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
     match /users/{uid} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
@@ -36,12 +41,24 @@ service cloud.firestore {
 
     // Read-only AI guides catalog for client content rendering.
     match /AiGuides/{guideId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if isAiGuidesAdmin();
     }
 
     // Backward-compatible lowercase collection variant.
     match /aiGuides/{guideId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if isAiGuidesAdmin();
+    }
+
+    // Editor draft collection for AiGuides content.
+    match /AiGuides_draft/{guideId} {
+      allow read, write: if isAiGuidesAdmin();
+    }
+
+    // Publish audit metadata for AiGuides releases.
+    match /AiGuides_publish_meta/{publishId} {
+      allow read, write: if isAiGuidesAdmin();
     }
   }
 }

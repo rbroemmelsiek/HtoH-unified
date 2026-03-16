@@ -75,6 +75,55 @@ function getCatalogCategoryFromValidIf(validIf?: string): string | null {
   return null;
 }
 
+const FIELD_CATEGORY_FALLBACKS: Record<string, string[]> = {
+  Property_Includes: ['InsideIncluded', 'OutsideIncluded'],
+  Property_Excludes: ['InsideIncluded', 'OutsideIncluded'],
+};
+
+function resolveFieldCategoryFallbackOptions(
+  field: FormFieldLike,
+  source: EnumValueSource,
+  fallbackSource: EnumValueSource,
+  getOptionsForCategory: (
+    category?: string,
+    fallback?: string[],
+    source?: EnumValueSource
+  ) => string[]
+): string[] {
+  const categories = FIELD_CATEGORY_FALLBACKS[field.name];
+  if (!categories?.length) return [];
+  const deduped = new Set<string>();
+  for (const category of categories) {
+    for (const opt of getOptionsForCategory(category, [], source)) deduped.add(opt);
+    for (const opt of getOptionsForCategory(category, [], fallbackSource)) deduped.add(opt);
+  }
+  return Array.from(deduped);
+}
+
+function resolveFieldCategoryFallbackSelectOptions(
+  field: FormFieldLike,
+  source: EnumValueSource,
+  fallbackSource: EnumValueSource,
+  getSelectOptionsForCategory: (
+    category?: string,
+    fallback?: string[],
+    source?: EnumValueSource
+  ) => EnumSelectOptionLike[]
+): EnumSelectOptionLike[] {
+  const categories = FIELD_CATEGORY_FALLBACKS[field.name];
+  if (!categories?.length) return [];
+  const deduped = new Map<string, EnumSelectOptionLike>();
+  for (const category of categories) {
+    for (const opt of getSelectOptionsForCategory(category, [], source)) {
+      deduped.set(opt.value, opt);
+    }
+    for (const opt of getSelectOptionsForCategory(category, [], fallbackSource)) {
+      deduped.set(opt.value, opt);
+    }
+  }
+  return Array.from(deduped.values());
+}
+
 export function resolveFieldOptions(
   field: FormFieldLike,
   formData: Record<string, unknown>,
@@ -145,27 +194,17 @@ export function resolveFieldOptions(
       if (aliasOptionsFallback.length > 0) return aliasOptionsFallback;
     }
   }
+  const fieldFallbackOptions = resolveFieldCategoryFallbackOptions(
+    field,
+    source,
+    fallbackSource,
+    getOptionsForCategory
+  );
+  if (fieldFallbackOptions.length > 0) {
+    return fieldFallbackOptions;
+  }
   if (isCatalogBound) {
     if (field.options?.length) {
-      // #region agent log
-      fetch('http://127.0.0.1:7550/ingest/ffd5b308-2692-4410-9cb2-c3f9560fe983', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '4938d5' },
-        body: JSON.stringify({
-          sessionId: '4938d5',
-          runId: 'before-fix',
-          hypothesisId: 'H9',
-          location: 'formLogic.ts:153',
-          message: 'Using schema fallback options for catalog-bound text options',
-          data: {
-            fieldName: field.name,
-            enumCategory: categoryKey,
-            fallbackCount: field.options.length,
-          },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-      // #endregion
       return field.options;
     }
     console.warn('[FormLogic] Missing EnumsCatalog category for field.', {
@@ -205,33 +244,11 @@ export function resolveFieldSelectOptions(
   const cached = selectOptionsCache.get(cacheKey);
   if (cached) {
     if (field.enumCategory === 'TransactionTemplateID' || field.name === 'TransactionTemplateID') {
-      // #region agent log
-      fetch('http://127.0.0.1:7550/ingest/ffd5b308-2692-4410-9cb2-c3f9560fe983', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '4938d5' },
-        body: JSON.stringify({
-          sessionId: '4938d5',
-          runId: 'before-fix',
-          hypothesisId: 'H3',
-          location: 'formLogic.ts:172',
-          message: 'Select options cache hit for TransactionTemplateID',
-          data: {
-            fieldName: field.name,
-            enumCategory: field.enumCategory,
-            source,
-            cachedCount: cached.length,
-            cacheKey,
-          },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-      // #endregion
     }
     return cached;
   }
 
   let resolved: EnumSelectOptionLike[] = [];
-  const debugCategoryFields = new Set(['Property_Includes', 'Property_Excludes', 'Related TransactionParties', 'Related TransactionContacts']);
 
   if (field.optionsCategorySourceField) {
     const selectedCategory = formData?.[field.optionsCategorySourceField];
@@ -295,83 +312,30 @@ export function resolveFieldSelectOptions(
         }
       }
     }
+    if (resolved.length === 0) {
+      const fieldFallbackOptions = resolveFieldCategoryFallbackSelectOptions(
+        field,
+        source,
+        fallbackSource,
+        getSelectOptionsForCategory
+      );
+      if (fieldFallbackOptions.length > 0) {
+        resolved = fieldFallbackOptions;
+      }
+    }
     if (resolved.length === 0 && isCatalogBound) {
       if (field.options?.length) {
         resolved = field.options.map((item) => ({ label: item, value: item }));
-        // #region agent log
-        fetch('http://127.0.0.1:7550/ingest/ffd5b308-2692-4410-9cb2-c3f9560fe983', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '4938d5' },
-          body: JSON.stringify({
-            sessionId: '4938d5',
-            runId: 'before-fix',
-            hypothesisId: 'H9',
-            location: 'formLogic.ts:284',
-            message: 'Using schema fallback options for catalog-bound select options',
-            data: {
-              fieldName: field.name,
-              enumCategory: resolvedCategory,
-              fallbackCount: field.options.length,
-            },
-            timestamp: Date.now(),
-          }),
-        }).catch(() => {});
-        // #endregion
       } else {
       console.warn('[FormLogic] Missing EnumsCatalog select-options category for field.', {
         fieldName: field.name,
         enumCategory: resolvedCategory,
         enumCategoryAliases: field.enumCategoryAliases || [],
       });
-      // #region agent log
-      fetch('http://127.0.0.1:7550/ingest/ffd5b308-2692-4410-9cb2-c3f9560fe983', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '4938d5' },
-        body: JSON.stringify({
-          sessionId: '4938d5',
-          runId: 'before-fix',
-          hypothesisId: 'H4',
-          location: 'formLogic.ts:268',
-          message: 'Missing EnumsCatalog options for enum field',
-          data: {
-            fieldName: field.name,
-            enumCategory: field.enumCategory,
-            enumCategoryAliases: field.enumCategoryAliases || [],
-            source,
-            fallbackSource,
-          },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-      // #endregion
       }
     }
   } else {
     resolved = (field.options || []).map((item) => ({ label: item, value: item }));
-  }
-
-  if (debugCategoryFields.has(field.name)) {
-    // #region agent log
-    fetch('http://127.0.0.1:7550/ingest/ffd5b308-2692-4410-9cb2-c3f9560fe983', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '4938d5' },
-      body: JSON.stringify({
-        sessionId: '4938d5',
-        runId: 'before-fix',
-        hypothesisId: 'H12',
-        location: 'formLogic.ts:resolveFieldSelectOptions',
-        message: 'Transaction enumlist resolution result',
-        data: {
-          fieldName: field.name,
-          resolvedCount: resolved.length,
-          hasEnumCategory: Boolean(field.enumCategory),
-          hasValidIfCategory: Boolean(getCatalogCategoryFromValidIf(field.validIf)),
-          hasStaticOptions: Boolean(field.options?.length),
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
   }
 
   selectOptionsCache.set(cacheKey, resolved);

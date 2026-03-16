@@ -39,9 +39,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, agent, co
   const hasContactsWidget = message.text.includes('[[WIDGET:Contacts]]');
   const hasPlanWidget = message.text.includes('[[WIDGET:Plan]]');
   const hasAcademyWidget = message.text.includes('[[WIDGET:Academy]]');
+  const hasAiGuidesWidget = message.text.includes('[[WIDGET:AiGuides]]');
   const hasPdfViewerWidget = message.text.includes('[[WIDGET:PDFViewer]]') || message.text.includes('[[WIDGET:Kindle]]');
   
-  const hasWidget = hasCalendarWidget || hasMapsWidget || hasPlacesWidget || hasYouTubeWidget || hasGraphWidget || hasFormsWidget || hasContactsWidget || hasPlanWidget || hasAcademyWidget || hasPdfViewerWidget;
+  const hasWidget = hasCalendarWidget || hasMapsWidget || hasPlacesWidget || hasYouTubeWidget || hasGraphWidget || hasFormsWidget || hasContactsWidget || hasPlanWidget || hasAcademyWidget || hasAiGuidesWidget || hasPdfViewerWidget;
   const transactionsTable = config?.tableDefinitions.find((t) => t.id === 'transactions');
 
   // Clean text for display
@@ -55,6 +56,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, agent, co
     .replace('[[WIDGET:Contacts]]', '')
     .replace('[[WIDGET:Plan]]', '')
     .replace('[[WIDGET:Academy]]', '')
+    .replace('[[WIDGET:AiGuides]]', '')
     .replace('[[WIDGET:PDFViewer]]', '')
     .replace('[[WIDGET:Kindle]]', '');
 
@@ -326,6 +328,22 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, agent, co
                         <div className="font-semibold">Service Plan</div>
                         <div className="text-xs text-white/70">Click to view and edit your plan</div>
                       </div>
+                    </div>
+                    <svg className="w-5 h-5 text-white/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </div>
+             )}
+             {hasAiGuidesWidget && !isUser && (
+                <div className="w-full mt-2">
+                  <button
+                    onClick={() => onExpandWidget && onExpandWidget('ai_guides')}
+                    className="w-full bg-gradient-to-r from-[#5972d0] to-[#141D84] text-white rounded-xl p-4 shadow-md hover:shadow-lg transition-all hover:scale-[1.01] flex items-center justify-between"
+                  >
+                    <div className="text-left">
+                      <div className="font-semibold">Ai Guide</div>
+                      <div className="text-xs text-white/70">Open guide runtime and editor</div>
                     </div>
                     <svg className="w-5 h-5 text-white/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />

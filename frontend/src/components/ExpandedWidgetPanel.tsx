@@ -13,6 +13,7 @@ import { PlanWidget } from './PlanWidget';
 import { AiAcademyWidget } from './AiAcademyWidget';
 import { AiAcademyHubWidget } from './AiAcademyHubWidget';
 import { KindleWidget } from './KindleWidget';
+import { AiGuidesWidget } from './ai-guides/AiGuidesWidget';
 
 interface ExpandedWidgetPanelProps {
   type: ExpandedWidgetType;
@@ -48,13 +49,14 @@ export const ExpandedWidgetPanel: React.FC<ExpandedWidgetPanelProps> = ({ type, 
       case 'academy': return 'Ai Academy';
       case 'academy_hub': return 'Ai Hub';
       case 'kindle': return 'PDF Viewer';
+      case 'ai_guides': return 'Ai Guide';
       default: return 'Widget';
     }
   };
 
-  const isFullBleed = type === 'contacts' || type === 'forms' || type === 'calendar' || type === 'plan' || type === 'academy' || type === 'academy_hub' || type === 'kindle';
+  const isFullBleed = type === 'contacts' || type === 'forms' || type === 'calendar' || type === 'plan' || type === 'academy' || type === 'academy_hub' || type === 'kindle' || type === 'ai_guides';
   // Hide the generic header if the widget provides its own controls (contacts/forms/calendar/plan)
-  const showHeader = type !== 'contacts' && type !== 'forms' && type !== 'calendar' && type !== 'plan' && type !== 'academy' && type !== 'academy_hub' && type !== 'kindle';
+  const showHeader = type !== 'contacts' && type !== 'forms' && type !== 'calendar' && type !== 'plan' && type !== 'academy' && type !== 'academy_hub' && type !== 'kindle' && type !== 'ai_guides';
   const transactionsTable = config?.tableDefinitions.find((t) => t.id === 'transactions');
 
   return (
@@ -224,6 +226,14 @@ export const ExpandedWidgetPanel: React.FC<ExpandedWidgetPanelProps> = ({ type, 
                isFullScreen={isFullScreen}
                agentId={initialData?.agentId}
                agentName={initialData?.agentName}
+             />
+          )}
+
+          {type === 'ai_guides' && (
+             <AiGuidesWidget
+               onClose={onClose}
+               onToggleFullScreen={() => setIsFullScreen(!isFullScreen)}
+               isFullScreen={isFullScreen}
              />
           )}
 

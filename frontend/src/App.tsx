@@ -83,6 +83,7 @@ function App() {
   const [expandedWidget, setExpandedWidget] = useState<ExpandedWidgetType>(null);
   const [expandedWidgetData, setExpandedWidgetData] = useState<any>(null); // To pass specific record ID or data
   const [expandedInstance, setExpandedInstance] = useState(0); // Force remount per open to avoid stale widget state
+  const [widgetInitialFullScreen, setWidgetInitialFullScreen] = useState(false);
   const [splitRatio, setSplitRatio] = useState(0.5); // Desktop split between chat and expansion
   const [isResizingSplit, setIsResizingSplit] = useState(false);
   const [widgetIsFullScreen, setWidgetIsFullScreen] = useState(false); // When true, chat recenters full-width (min 800px)
@@ -143,10 +144,13 @@ function App() {
       console.log('[App] Nav bar clicked, expanding Plan widget', customEvent.detail);
       // If widget is not expanded, expand it
       if (expandedWidget !== 'plan') {
-        setExpandedWidget('plan');
-        setExpandedWidgetData({
-          ownerId: user?.uid
-        });
+        handleExpandWidget(
+          'plan',
+          {
+            ownerId: user?.uid
+          },
+          true
+        );
       }
     };
 
@@ -424,13 +428,19 @@ function App() {
     }
   };
 
-  const handleExpandWidget = (type: ExpandedWidgetType, data?: any) => {
+  const handleExpandWidget = (
+    type: ExpandedWidgetType,
+    data?: any,
+    initialFullScreen: boolean = type === 'plan'
+  ) => {
     const nextData = type === 'plan'
       ? {
           planId: data?.planId,
           ownerId: data?.ownerId ?? user?.uid,
         }
       : data;
+    setWidgetInitialFullScreen(initialFullScreen);
+    setWidgetIsFullScreen(initialFullScreen);
     setExpandedWidget(type);
     setExpandedWidgetData(nextData);
     setExpandedInstance(prev => prev + 1);
@@ -439,6 +449,7 @@ function App() {
   const handleCloseWidget = () => {
     setExpandedWidget(null);
     setExpandedWidgetData(null);
+    setWidgetInitialFullScreen(false);
     setWidgetIsFullScreen(false);
     setExpandedInstance(prev => prev + 1); // bump key so next open remounts fresh
     // Force a layout recalculation by triggering a resize event
@@ -632,24 +643,25 @@ function App() {
       responseText = `Opening the Contacts Directory. [[WIDGET:Contacts]]`;
     } else if (toolName.includes('Plan') || toolName.includes('Service Plan')) {
       responseText = `Opening the Service Plan widget. [[WIDGET:Plan]]`;
+      // Match Ai Guide behavior: open immediately in right-side half pane.
+      handleExpandWidget('plan', { planId: userProfile?.currentPlanId, ownerId: user?.uid }, false);
     } else if (toolName.includes('Academy')) {
       responseText = `Opening Ai Academy. [[WIDGET:Academy]]`;
       // Navigate to Academy view instead of opening as widget
       setCurrentView('academy');
+    } else if (toolName.includes('Ai Guide')) {
+      responseText = `Opening Ai Guide. [[WIDGET:AiGuides]]`;
+      handleExpandWidget('ai_guides', { agentId: currentAgent.id, agentName: currentAgent.name }, false);
     } else if (toolName.includes('Help')) {
       responseText = `Opening Help & Documentation.`;
       setCurrentView('help');
     } else if (toolName.includes('PDF Viewer') || toolName.includes('Kindle')) {
       responseText = `Opening PDF Viewer. [[WIDGET:PDFViewer]]`;
-      setExpandedWidget('kindle');
-      setExpandedWidgetData({ agentId: currentAgent.id, agentName: currentAgent.name });
-      setExpandedInstance(prev => prev + 1);
+      handleExpandWidget('kindle', { agentId: currentAgent.id, agentName: currentAgent.name }, false);
     }
     else if (toolName.includes('Ai Hub')) {
       responseText = `Opening Ai Hub. [[WIDGET:AcademyHub]]`;
-      setExpandedWidget('academy_hub');
-      setExpandedWidgetData({ agentId: currentAgent.id, agentName: currentAgent.name });
-      setExpandedInstance(prev => prev + 1);
+      handleExpandWidget('academy_hub', { agentId: currentAgent.id, agentName: currentAgent.name }, false);
     } else {
       responseText = `[System]: The ${toolName} widget is active.`;
     }
@@ -719,6 +731,7 @@ function App() {
             { icon: Play, label: 'YouTube', tool: 'YouTube Data API' },
             { icon: BarChart3, label: 'Graph', tool: 'Graph Widget' },
             { icon: BookOpen, label: 'Ai Academy', tool: 'Ai Academy' },
+            { icon: BookOpen, label: 'Ai Guide', tool: 'Ai Guide' },
             { icon: HelpCircle, label: 'Help', tool: 'Help Documentation' },
             { icon: BookText, label: 'PDF Viewer', tool: 'PDF Viewer' }
           ].map((item, i) => (
@@ -814,7 +827,7 @@ function App() {
             config={config}
             initialData={expandedWidgetData}
             instanceKey={expandedInstance}
-            initialFullScreen={expandedWidget === 'plan'}
+            initialFullScreen={widgetInitialFullScreen}
             onFullScreenChange={setWidgetIsFullScreen}
           />
         </div>
@@ -1458,7 +1471,7 @@ function App() {
               config={config}
               initialData={expandedWidgetData}
               instanceKey={expandedInstance}
-              initialFullScreen={expandedWidget === 'plan'}
+              initialFullScreen={widgetInitialFullScreen}
               onFullScreenChange={setWidgetIsFullScreen}
             />
           </aside>

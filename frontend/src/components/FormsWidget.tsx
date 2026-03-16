@@ -46,9 +46,8 @@ interface MesopFieldProps {
   onTooltipEnter?: (tooltipId: string) => void;
   onTooltipLeave?: () => void;
   tooltipAlign?: 'left' | 'right' | 'center';
+  optionsLoading?: boolean;
 }
-
-const __agentLoggedFieldConfigs = new Set<string>();
 
 // --- COMPONENT GALLERY SCHEMA (Showcases all types) ---
 const COMPREHENSIVE_EXAMPLE_SCHEMA: FieldDef[] = [
@@ -240,26 +239,6 @@ const EnumPicker: React.FC<EnumPickerProps> = ({ label, options = [], value, onC
   );
 
   const toggleOption = (optValue: string) => {
-    // #region agent log
-    fetch('http://127.0.0.1:7550/ingest/ffd5b308-2692-4410-9cb2-c3f9560fe983', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '4938d5' },
-      body: JSON.stringify({
-        sessionId: '4938d5',
-        runId: 'before-fix',
-        hypothesisId: 'H11',
-        location: 'FormsWidget.tsx:toggleOption',
-        message: 'Enum picker option toggled',
-        data: {
-          label,
-          multi: Boolean(multi),
-          option: optValue,
-          selectedCountBefore: selected.length,
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
     if (multi) {
       if (selected.includes(optValue)) {
         setSelected(selected.filter((s) => s !== optValue));
@@ -270,24 +249,6 @@ const EnumPicker: React.FC<EnumPickerProps> = ({ label, options = [], value, onC
       setSelected([optValue]);
       onChange(optValue);
       onClose();
-      // #region agent log
-      fetch('http://127.0.0.1:7550/ingest/ffd5b308-2692-4410-9cb2-c3f9560fe983', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '4938d5' },
-        body: JSON.stringify({
-          sessionId: '4938d5',
-          runId: 'before-fix',
-          hypothesisId: 'H11',
-          location: 'FormsWidget.tsx:toggleOption',
-          message: 'Single-select option committed and picker closed',
-          data: {
-            label,
-            selectedValue: optValue,
-          },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-      // #endregion
     }
   };
 
@@ -410,6 +371,7 @@ export const MesopField: React.FC<MesopFieldProps> = ({
   onTooltipEnter,
   onTooltipLeave,
   tooltipAlign = 'center',
+  optionsLoading = false,
 }) => {
   const [isFocused, setIsFocused] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -420,31 +382,6 @@ export const MesopField: React.FC<MesopFieldProps> = ({
   const isSqFtField = fieldName === 'SqFt' || label === 'SqFt';
   const isBathsField = fieldName === 'Baths' || label === 'Baths';
   const activate = () => onActivate?.();
-  const trackedLabels = ['SqFt', 'Baths', 'Property Zip', 'Additional Property Info', 'Agreements Describe', 'MLS Description', 'Other Liens Description'];
-
-  if (!__agentLoggedFieldConfigs.has(label) && trackedLabels.includes(label)) {
-    __agentLoggedFieldConfigs.add(label);
-    // #region agent log
-    fetch('http://127.0.0.1:7550/ingest/ffd5b308-2692-4410-9cb2-c3f9560fe983', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '4938d5' },
-      body: JSON.stringify({
-        sessionId: '4938d5',
-        runId: 'before-fix',
-        hypothesisId: 'H13',
-        location: 'FormsWidget.tsx:MesopField',
-        message: 'Target field render config snapshot',
-        data: {
-          label,
-          type,
-          placeholder: placeholder || '',
-          isZipField,
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
-  }
 
   const handleBlur = () => {
     setIsFocused(false);
@@ -720,23 +657,6 @@ export const MesopField: React.FC<MesopFieldProps> = ({
                   const currentValue = Number(value || 0);
                   const nextValue = currentValue - stepAmount;
                   onChange(isBathsField ? Number(nextValue.toFixed(1)) : Math.round(nextValue));
-                  if (label === 'SqFt' || label === 'Property Zip') {
-                    // #region agent log
-                    fetch('http://127.0.0.1:7550/ingest/ffd5b308-2692-4410-9cb2-c3f9560fe983', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '4938d5' },
-                      body: JSON.stringify({
-                        sessionId: '4938d5',
-                        runId: 'before-fix',
-                        hypothesisId: 'H14',
-                        location: 'FormsWidget.tsx:NumberMinus',
-                        message: 'Number decrement pressed',
-                        data: { label, currentValue: Number(value || 0), delta: -1 },
-                        timestamp: Date.now(),
-                      }),
-                    }).catch(() => {});
-                    // #endregion
-                  }
                 }}
                 className="p-1 hover:bg-gray-100 rounded hover:text-[#141D84]"
               >
@@ -748,23 +668,6 @@ export const MesopField: React.FC<MesopFieldProps> = ({
                   const currentValue = Number(value || 0);
                   const nextValue = currentValue + stepAmount;
                   onChange(isBathsField ? Number(nextValue.toFixed(1)) : Math.round(nextValue));
-                  if (label === 'SqFt' || label === 'Property Zip') {
-                    // #region agent log
-                    fetch('http://127.0.0.1:7550/ingest/ffd5b308-2692-4410-9cb2-c3f9560fe983', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '4938d5' },
-                      body: JSON.stringify({
-                        sessionId: '4938d5',
-                        runId: 'before-fix',
-                        hypothesisId: 'H14',
-                        location: 'FormsWidget.tsx:NumberPlus',
-                        message: 'Number increment pressed',
-                        data: { label, currentValue: Number(value || 0), delta: 1 },
-                        timestamp: Date.now(),
-                      }),
-                    }).catch(() => {});
-                    // #endregion
-                  }
                 }}
                 className="p-1 hover:bg-gray-100 rounded hover:text-[#141D84]"
               >
@@ -779,23 +682,6 @@ export const MesopField: React.FC<MesopFieldProps> = ({
 
   // MESOP Style: Long text / textarea field
   if (type === 'LongText') {
-    if (trackedLabels.includes(label)) {
-      // #region agent log
-      fetch('http://127.0.0.1:7550/ingest/ffd5b308-2692-4410-9cb2-c3f9560fe983', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '4938d5' },
-        body: JSON.stringify({
-          sessionId: '4938d5',
-          runId: 'before-fix',
-          hypothesisId: 'H15',
-          location: 'FormsWidget.tsx:LongText',
-          message: 'LongText placeholder resolved',
-          data: { label, placeholder: placeholder || '' },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-      // #endregion
-    }
     return (
       <div className={containerClass} onClick={(e) => e.stopPropagation()} onMouseDownCapture={activate}>
         <div className="relative">
@@ -879,6 +765,7 @@ export const MesopField: React.FC<MesopFieldProps> = ({
   if (['Enum', 'EnumList', 'Ref'].includes(type)) {
     const [isPickerOpen, setPickerOpen] = useState(false);
     const optionList = options || [];
+    const showLoadingPlaceholder = optionsLoading && optionList.length === 0;
     const valueToLabel = useMemo(() => {
       const map = new Map<string, string>();
       optionList.forEach((opt) => map.set(String(opt.value), String(opt.label)));
@@ -898,16 +785,26 @@ export const MesopField: React.FC<MesopFieldProps> = ({
 
     return (
       <>
-        <div className={containerClass} onClick={(e) => { e.stopPropagation(); if (!readOnly) setPickerOpen(true); }}>
+        <div
+          className={containerClass}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (readOnly) return;
+            if (showLoadingPlaceholder) {
+              return;
+            }
+            setPickerOpen(true);
+          }}
+        >
           <div
             className="relative cursor-pointer"
             role="button"
             aria-label={label}
             aria-haspopup="dialog"
             aria-expanded={isPickerOpen}
-            tabIndex={readOnly ? -1 : 0}
+            tabIndex={readOnly || showLoadingPlaceholder ? -1 : 0}
             onKeyDown={(event) => {
-              if (readOnly) return;
+              if (readOnly || showLoadingPlaceholder) return;
               if (event.key === 'Enter' || event.key === ' ') {
                 event.preventDefault();
                 setPickerOpen(true);
@@ -941,7 +838,7 @@ export const MesopField: React.FC<MesopFieldProps> = ({
                 </div>
               ) : (
                 <span className={`truncate ${!displayValue ? 'text-gray-400' : 'text-gray-900'}`}>
-                  {displayValue || 'Select...'}
+                  {displayValue || (showLoadingPlaceholder ? 'Loading options...' : 'Select...')}
                 </span>
               )}
             </div>
@@ -1240,7 +1137,7 @@ export const FormsWidget: React.FC<FormsWidgetProps> = ({
   isFullScreen,
   firstStepTitle
 }) => {
-  const { getSelectOptionsForCategory, catalogVersion } = useEnumCatalog();
+  const { getSelectOptionsForCategory, catalogVersion, loading: enumCatalogLoading } = useEnumCatalog();
   useEffect(() => {
     clearFormLogicCache();
   }, [catalogVersion]);
@@ -1375,6 +1272,16 @@ export const FormsWidget: React.FC<FormsWidgetProps> = ({
     return resolveFieldSelectOptions(field, genericFormData || {}, getSelectOptionsForCategory, catalogVersion);
   };
 
+  const isEnumCatalogFieldLoading = (field: FieldDef): boolean => {
+    if (!(field.type === 'Enum' || field.type === 'EnumList')) return false;
+    const validIfCatalogBound = Boolean(field.validIf && field.validIf.includes('EnumsCatalog'));
+    const explicitCatalogBound = Boolean(field.enumCategory || field.enumCategoryAliases?.length);
+    const knownFallbackCatalogField = field.name === 'Property_Includes' || field.name === 'Property_Excludes';
+    const isCatalogBound = validIfCatalogBound || explicitCatalogBound || knownFallbackCatalogField;
+    if (!isCatalogBound) return false;
+    return enumCatalogLoading || catalogVersion === 0;
+  };
+
   useEffect(() => {
     const enumFields = activeSchema.filter((field) => field.type === 'Enum' || field.type === 'EnumList');
     if (enumFields.length === 0) return;
@@ -1416,26 +1323,6 @@ export const FormsWidget: React.FC<FormsWidgetProps> = ({
         skippedCount,
         failures,
       });
-      // #region agent log
-      fetch('http://127.0.0.1:7550/ingest/ffd5b308-2692-4410-9cb2-c3f9560fe983', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '4938d5' },
-        body: JSON.stringify({
-          sessionId: '4938d5',
-          runId: 'before-fix',
-          hypothesisId: 'H5',
-          location: 'FormsWidget.tsx:1240',
-          message: 'Enum coverage mismatch summary',
-          data: {
-            verifiedCount,
-            skippedCount,
-            failureCount: failures.length,
-            failures: failures.slice(0, 15),
-          },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-      // #endregion
       return;
     }
 
@@ -1444,25 +1331,6 @@ export const FormsWidget: React.FC<FormsWidgetProps> = ({
       skippedCount,
       totalEnumFields: enumFields.length,
     });
-    // #region agent log
-    fetch('http://127.0.0.1:7550/ingest/ffd5b308-2692-4410-9cb2-c3f9560fe983', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '4938d5' },
-      body: JSON.stringify({
-        sessionId: '4938d5',
-        runId: 'before-fix',
-        hypothesisId: 'H5',
-        location: 'FormsWidget.tsx:1260',
-        message: 'Enum coverage pass summary',
-        data: {
-          verifiedCount,
-          skippedCount,
-          totalEnumFields: enumFields.length,
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
   }, [activeSchema, genericFormData, getSelectOptionsForCategory, catalogVersion]);
 
   const getVisibleFields = (fields: FieldDef[]) => fields.filter((field) => !field.hidden && evaluateShowIf(field));
@@ -1482,28 +1350,6 @@ export const FormsWidget: React.FC<FormsWidgetProps> = ({
 
   const currentStepIndex = visibleSteps.findIndex((step) => step.id === currentStep);
   const currentStepNumber = currentStepIndex >= 0 ? currentStepIndex + 1 : 1;
-
-  useEffect(() => {
-    const buyerStep = visibleSteps.find((step) => step.title === 'Buyer Financials');
-    if (!buyerStep) return;
-    // #region agent log
-    fetch('http://127.0.0.1:7550/ingest/ffd5b308-2692-4410-9cb2-c3f9560fe983', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '4938d5' },
-      body: JSON.stringify({
-        sessionId: '4938d5',
-        runId: 'before-fix',
-        hypothesisId: 'H16',
-        location: 'FormsWidget.tsx:visibleSteps',
-        message: 'Buyer Financials field order snapshot',
-        data: {
-          fieldOrder: buyerStep.fields.map((field) => field.label),
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
-  }, [visibleSteps]);
 
   const toggleSection = (id: number) => {
     setExpandedSections(prev => ({ ...prev, [id]: !prev[id] }));
@@ -1658,6 +1504,7 @@ export const FormsWidget: React.FC<FormsWidgetProps> = ({
                   onTooltipLeave={() => setActiveTooltipId(null)}
                   tooltipAlign={columnPosition as 'left' | 'right' | 'center'}
                   options={resolveDynamicOptions(field)}
+                  optionsLoading={isEnumCatalogFieldLoading(field)}
                   readOnly={readOnly || field.readOnly}
                   placeholder={field.placeholder}
                   description={field.description}
@@ -1713,6 +1560,7 @@ export const FormsWidget: React.FC<FormsWidgetProps> = ({
                             onTooltipLeave={() => setActiveTooltipId(null)}
                             tooltipAlign={columnPosition as 'left' | 'right' | 'center'}
                             options={resolveDynamicOptions(field)}
+                            optionsLoading={isEnumCatalogFieldLoading(field)}
                             readOnly={readOnly || field.readOnly}
                             placeholder={field.placeholder}
                             description={field.description}

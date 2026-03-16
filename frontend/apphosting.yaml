@@ -73,3 +73,18 @@ env:
     availability:
       - BUILD
       - RUNTIME
+  - variable: NEXT_PUBLIC_AI_GUIDES_DRAFT_COLLECTION
+    value: AiGuides_draft
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_AI_GUIDES_PUBLISH_META_COLLECTION
+    value: AiGuides_publish_meta
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_AI_GUIDES_ADMIN_EMAILS
+    value: ray@ambassadorsystems.com
+    availability:
+      - BUILD
+      - RUNTIME
